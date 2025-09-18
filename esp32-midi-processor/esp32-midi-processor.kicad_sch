@@ -10572,7 +10572,7 @@
 				)
 			)
 		)
-		(property "Footprint" "dip-8_w7.62mm_Socket"
+		(property "Footprint" "Package_DIP:DIP-8_W7.62mm_Socket"
 			(at 84.836 121.92 0)
 			(effects
 				(font
@@ -12543,7 +12543,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical"
 			(at 276.86 54.61 0)
 			(effects
 				(font
@@ -13493,7 +13493,7 @@
 				)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm"
 			(at 247.65 147.32 0)
 			(effects
 				(font
@@ -14611,7 +14611,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
 			(at 101.2952 48.26 0)
 			(effects
 				(font
@@ -15385,7 +15385,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "Capacitor_SMD:C_0603_1608Metric"
 			(at 102.5652 106.68 0)
 			(effects
 				(font
