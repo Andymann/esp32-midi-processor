@@ -14579,6 +14579,45 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "Midi IN 1"
+		(at 25.908 44.45 90)
+		(layer "F.Cu")
+		(uuid "2fa0dd7d-da5b-495c-a293-e3383e55d0d3")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "Midi IN 2"
+		(at 42.418 44.45 90)
+		(layer "F.Cu")
+		(uuid "38785e41-aa1b-4c77-9934-0cfb3813cadc")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "esp32"
+		(at 36.068 98.298 0)
+		(layer "F.Cu")
+		(uuid "3dd96460-abbb-4ff5-9287-0bb44ec70583")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "Spare"
 		(at 18.288 94.488 -90)
 		(layer "F.Cu")
@@ -14618,10 +14657,36 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "Midi OUT 1"
+		(at 81.28 44.958 90)
+		(layer "F.Cu")
+		(uuid "65bad5c8-40e2-417e-a8af-1500e0f00cef")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "Display"
 		(at 72.39 68.58 0)
 		(layer "F.Cu")
 		(uuid "725f9147-2b21-464d-89cc-9ded35928f7c")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "Midi OUT 2"
+		(at 97.79 44.958 90)
+		(layer "F.Cu")
+		(uuid "d0306301-fff8-4681-b892-c9e3b28b84c7")
 		(effects
 			(font
 				(size 1.5 1.5)
