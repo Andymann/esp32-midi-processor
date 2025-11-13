@@ -4049,6 +4049,146 @@
 				)
 			)
 		)
+		(symbol "Regulator_Linear:LM7805_TO220"
+			(pin_names
+				(offset 0.254)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "U"
+				(at -3.81 3.175 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "LM7805_TO220"
+				(at 0 3.175 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "Package_TO_SOT_THT:TO-220-3_Vertical"
+				(at 0 5.715 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+						(italic yes)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.onsemi.cn/PowerSolutions/document/MC7800-D.PDF"
+				(at 0 -1.27 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Positive 1A 35V Linear Regulator, Fixed Output 5V, TO-220"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "Voltage Regulator 1A Positive"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "TO?220*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "LM7805_TO220_0_1"
+				(rectangle
+					(start -5.08 1.905)
+					(end 5.08 -5.08)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(symbol "LM7805_TO220_1_1"
+				(pin power_in line
+					(at -7.62 0 0)
+					(length 2.54)
+					(name "VI"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_in line
+					(at 0 -7.62 90)
+					(length 2.54)
+					(name "GND"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin power_out line
+					(at 7.62 0 180)
+					(length 2.54)
+					(name "VO"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+		)
 		(symbol "Switch:SW_Push"
 			(pin_numbers hide)
 			(pin_names
@@ -5777,6 +5917,16 @@
 	)
 	(wire
 		(pts
+			(xy 85.09 29.21) (xy 85.09 33.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5ed990dd-855d-4fd5-a7cc-72f1a198b159")
+	)
+	(wire
+		(pts
 			(xy 194.31 68.58) (xy 204.47 68.58)
 		)
 		(stroke
@@ -6227,7 +6377,7 @@
 	)
 	(wire
 		(pts
-			(xy 59.69 21.59) (xy 67.31 21.59)
+			(xy 59.69 21.59) (xy 77.47 21.59)
 		)
 		(stroke
 			(width 0)
@@ -6584,6 +6734,16 @@
 			(type default)
 		)
 		(uuid "bc79a698-aef7-45f5-9f36-478a40905bc2")
+	)
+	(wire
+		(pts
+			(xy 92.71 21.59) (xy 102.87 21.59)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "be7b93e2-e77e-42c7-acfa-c812825651fd")
 	)
 	(wire
 		(pts
@@ -7949,7 +8109,7 @@
 	)
 	(global_label "VIN"
 		(shape input)
-		(at 67.31 21.59 0)
+		(at 102.87 21.59 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -7959,7 +8119,7 @@
 		)
 		(uuid "cc308f2d-9d42-4264-8a19-a50928af0f61")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 73.3191 21.59 0)
+			(at 108.8791 21.59 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9477,6 +9637,72 @@
 			(project ""
 				(path "/455de105-8b26-465e-84b2-943a0958c97b"
 					(reference "SW1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 85.09 33.02 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2b12aa1f-549f-438d-b99b-972fe265ef41")
+		(property "Reference" "#PWR037"
+			(at 85.09 39.37 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 85.09 38.1 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 85.09 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 85.09 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 85.09 33.02 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "6512210f-9562-4102-b21e-a3cd9d98a785")
+		)
+		(instances
+			(project "esp32-midi-processor"
+				(path "/455de105-8b26-465e-84b2-943a0958c97b"
+					(reference "#PWR037")
 					(unit 1)
 				)
 			)
@@ -13150,6 +13376,78 @@
 			(project "esp32-midi-processor"
 				(path "/455de105-8b26-465e-84b2-943a0958c97b"
 					(reference "J4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Regulator_Linear:LM7805_TO220")
+		(at 85.09 21.59 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "cab1b85c-3c0f-45c9-906a-23c14997d5b1")
+		(property "Reference" "U3"
+			(at 85.09 15.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "LM7805_TO220"
+			(at 85.09 17.78 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Package_TO_SOT_THT:TO-220-3_Vertical"
+			(at 85.09 15.875 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+					(italic yes)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.onsemi.cn/PowerSolutions/document/MC7800-D.PDF"
+			(at 85.09 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Positive 1A 35V Linear Regulator, Fixed Output 5V, TO-220"
+			(at 85.09 21.59 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "48fb4bbc-cce3-42fe-ae1c-93a8ff4abd09")
+		)
+		(pin "1"
+			(uuid "7a0b1791-0596-402f-a697-2cadb158c4c6")
+		)
+		(pin "3"
+			(uuid "4f6093c2-57ec-4b33-93d1-23a77861cd86")
+		)
+		(instances
+			(project ""
+				(path "/455de105-8b26-465e-84b2-943a0958c97b"
+					(reference "U3")
 					(unit 1)
 				)
 			)
