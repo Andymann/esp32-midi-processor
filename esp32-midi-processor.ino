@@ -16,7 +16,7 @@
 #include <BlockNot.h>
 #include <EEPROM.h>
 
-#define VERSION "0.92"
+#define VERSION "0.95"
 
 #define PRESET_COUNT 4
 #define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
@@ -283,7 +283,7 @@ AppFeature arrFeatures[] = {
   AppFeature("3 Note Ch PT", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_PASSTHRU, true),
   AppFeature("3 Note Ch 1", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_1),
   AppFeature("3 Note Ch 2", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_2),
-  AppFeature(" Note Ch 3", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_3),
+  AppFeature("3 Note Ch 3", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_3),
   AppFeature("3 Note Ch 4", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_4),
   AppFeature("3 Note Ch 5", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_5),
   AppFeature("3 Note Ch 6", 3, FEATURE_GROUP_NOTE_CHANNEL, CHANNEL_6),
@@ -639,7 +639,7 @@ void sendToOutput(uint8_t outIndex, uint8_t *midiPacket) {
   flashLED(outIndex + 1);
   if (outIndex == 0) Serial1.write(midiPacket, len);
   else if (outIndex == 1) Serial2.write(midiPacket, len);
-  else if (outIndex == 2) { /* USB out: TODO when Midi.SendData available */ }
+  else if (outIndex == 2) Midi.SendData(midiPacket, 0);
 }
 
 // Only pass through notes that fit the selected scale and root. Others are dropped (midiPacket[2] = 0xFF).
@@ -687,7 +687,7 @@ void processVelocity(uint8_t *midiPacket, uint8_t outIndex){
   uint8_t iStatus = midiPacket[0] & 0xF0;
   if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
   // Note OFF (0x80): always send velocity 0 so it stays a note off
-  if (iStatus == 0x80) {
+  if ((iStatus == 0x80)||(midiPacket[2]==0)) {
     midiPacket[2] = 0;
     return;
   }
