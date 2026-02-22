@@ -13,9 +13,13 @@
 #include <AbleButtons.h>
 #include "AppFeature.h"
 #include <Fonts/FreeSans9pt7b.h>
-#include <BlockNot.h>   
+#include <BlockNot.h>
+#include <EEPROM.h>
 
 #define VERSION "0.40"
+
+#define PRESET_COUNT 4
+#define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
 
 // Declaration for SSD1306 display connected using I2C
 #define SCREEN_WIDTH 128  // OLED display width, in pixels
@@ -404,10 +408,59 @@ void setup() {
 
   displayText("esp32 Midi", "processor", "Firmware:", VERSION);
   delay(2000);
+  EEPROM.begin(EEPROM_SIZE);
   processMenuNavigation(0);
   syncSettingsFromFeatures();
 }//Setup
 
+// Save current settings to preset slot (0=A, 1=B, 2=C, 3=D). Persists across power cycle.
+void savePreset(uint8_t slot) {
+  if (slot >= PRESET_COUNT) return;
+  uint16_t addr = 2 + slot * (1 + sizeof(AppSettings));
+  EEPROM.write(addr, 1);  // valid
+  EEPROM.put(addr + 1, settings);
+  EEPROM.commit();
+  displayText("Preset", String((char)('A' + slot)) + " saved", "", "");
+}
+
+// Load preset into current settings and update menu. No-op if slot was never saved.
+void loadPreset(uint8_t slot) {
+  if (slot >= PRESET_COUNT) return;
+  uint16_t addr = 2 + slot * (1 + sizeof(AppSettings));
+  if (EEPROM.read(addr) != 1) {
+    displayText("Preset", String((char)('A' + slot)) + " empty", "", "");
+    return;
+  }
+  EEPROM.get(addr + 1, settings);
+  syncFeaturesFromSettings();
+  iRootNoteOffset = (settings.output[0].rootNote > ROOTNOTE_PASSTHROUGH) ? (settings.output[0].rootNote - 1) : 0;
+  displayText("Preset", String((char)('A' + slot)) + " loaded", "", "");
+  delay(3000);
+  displayText(getMenuItem(iMenuPosition), getMenuItem(iMenuPosition + 1), getMenuItem(iMenuPosition + 2), "");
+}
+
+// Update arrFeatures[] selection to match current settings (after load preset).
+void syncFeaturesFromSettings() {
+  for (uint8_t i = 0; i < FEATURECOUNT; i++) {
+    arrFeatures[i].select(false);
+  }
+  for (uint8_t i = 0; i < FEATURECOUNT; i++) {
+    uint8_t grp = arrFeatures[i].getFeatureGroup();
+    uint8_t val = arrFeatures[i].getFeature();
+    uint8_t outport = arrFeatures[i].getOutport();
+    uint8_t o = (outport >= 1 && outport <= 3) ? (outport - 1) : 0;
+    bool match = false;
+    if (grp == FEATURE_GROUP_ROUTING_IN_1 && outport == 0 && val == settings.routingIn1) match = true;
+    else if (grp == FEATURE_GROUP_ROUTING_IN_2 && outport == 0 && val == settings.routingIn2) match = true;
+    else if (grp == FEATURE_GROUP_ROUTING_IN_3 && outport == 0 && val == settings.routingIn3) match = true;
+    else if (grp == FEATURE_GROUP_VELOCITY && outport >= 1 && settings.output[o].velocity == val) match = true;
+    else if (grp == FEATURE_GROUP_NOTE_CHANNEL && outport >= 1 && settings.output[o].noteChannel == val) match = true;
+    else if (grp == FEATURE_GROUP_CC_CHANNEL && outport >= 1 && settings.output[o].ccChannel == val) match = true;
+    else if (grp == FEATURE_GROUP_SCALE && outport >= 1 && settings.output[o].scale == val) match = true;
+    else if (grp == FEATURE_GROUP_ROOTNOTE && outport >= 1 && settings.output[o].rootNote == val) match = true;
+    if (match) arrFeatures[i].select(true);
+  }
+}
 
 // Build settings from current arrFeatures[] selection (call after processEncoderClick / at startup)
 // Only updates the specific output for each selected feature; other outputs keep their values.
@@ -610,7 +663,7 @@ void processScale(uint8_t *midiPacket, uint8_t outIndex) {
     intervals = pentaMajorIntervals;
   } else if(scale == SCALE_PENTATONIC_MINOR) {
     intervals = pentaMinorIntervals;
-  else {
+  }else {
     return; // SCALE_PENTATONIC_* etc. not implemented
   }
 
@@ -692,104 +745,81 @@ void flashLED(uint8_t pOutport){
 
 void checkButton_A(){
    btnA.handle();
-  // bBtnA_old: Damit isHeld() nur einmal getriggert wird.
-  //
-  if(btnA.isClicked()){
-    if(bBtnA_Reset==false){
-      if(btnA_Held==false){
-        Serial.println("BtnA isClicked");
-        displayText("ASSA ASSA", "ANDY", "MUSIK:", "COOL");
-      }
-      btnA.resetClicked();
-    }
-    bBtnA_Reset = false;
-    btnA_Held=false;
-  }
-
-  if(btnA.isHeld()){
-    if(!bBtnA_old){
-      Serial.println("BtnA isHeld");
-      bBtnA_old=true;
+  if (btnA.isHeld()) {
+    if (!bBtnA_old) {
+      bBtnA_old = true;
       btnA_Held = true;
-      bBtnA_Reset=btnA.resetClicked();
+      bBtnA_Reset = btnA.resetClicked();
+      savePreset(0);  // long press: save to preset A
     }
-  }else{
-    bBtnA_old=false;
+  } else {
+    bBtnA_old = false;
+    if (btnA.isClicked()) {
+      if (bBtnA_Reset == false && btnA_Held == false) loadPreset(0);  // short click: recall preset A
+      btnA.resetClicked();
+      bBtnA_Reset = false;
+      btnA_Held = false;
+    }
   }
 }
 
 void checkButton_B(){
    btnB.handle();
-  if(btnB.isClicked()){
-    if(bBtnB_Reset==false){
-      if(btnB_Held==false){
-        Serial.println("BtnB isClicked");
-      }
-      btnB.resetClicked();
-    }
-    bBtnB_Reset = false;
-    btnB_Held=false;
-  }
-
-  if(btnB.isHeld()){
-    if(!bBtnB_old){
-      Serial.println("BtnB isHeld");
-      bBtnB_old=true;
+  if (btnB.isHeld()) {
+    if (!bBtnB_old) {
+      bBtnB_old = true;
       btnB_Held = true;
-      bBtnB_Reset=btnB.resetClicked();
+      bBtnB_Reset = btnB.resetClicked();
+      savePreset(1);  // long press: save to preset B
     }
-  }else{
-    bBtnB_old=false;
+  } else {
+    bBtnB_old = false;
+    if (btnB.isClicked()) {
+      if (bBtnB_Reset == false && btnB_Held == false) loadPreset(1);  // short click: recall preset B
+      btnB.resetClicked();
+      bBtnB_Reset = false;
+      btnB_Held = false;
+    }
   }
 }
 
 void checkButton_C(){
   btnC.handle();
-  if(btnC.isClicked()){
-    if(bBtnC_Reset==false){
-      if(btnC_Held==false){
-        Serial.println("BtnC isClicked");
-      }
-      btnC.resetClicked();
-    }
-    bBtnC_Reset = false;
-    btnC_Held=false;
-  }
-
-  if(btnC.isHeld()){
-    if(!bBtnC_old){
-      Serial.println("BtnC isHeld");
-      bBtnC_old=true;
+  if (btnC.isHeld()) {
+    if (!bBtnC_old) {
+      bBtnC_old = true;
       btnC_Held = true;
-      bBtnC_Reset=btnC.resetClicked();
+      bBtnC_Reset = btnC.resetClicked();
+      savePreset(2);  // long press: save to preset C
     }
-  }else{
-    bBtnC_old=false;
+  } else {
+    bBtnC_old = false;
+    if (btnC.isClicked()) {
+      if (bBtnC_Reset == false && btnC_Held == false) loadPreset(2);  // short click: recall preset C
+      btnC.resetClicked();
+      bBtnC_Reset = false;
+      btnC_Held = false;
+    }
   }
 }
 
 void checkButton_D(){
   btnD.handle();
-  if(btnD.isClicked()){
-    if(bBtnD_Reset==false){
-      if(btnD_Held==false){
-        Serial.println("BtnD isClicked");
-      }
-      btnD.resetClicked();
-    }
-    bBtnD_Reset = false;
-    btnD_Held=false;
-  }
-
-  if(btnD.isHeld()){
-    if(!bBtnD_old){
-      Serial.println("BtnD isHeld");
-      bBtnD_old=true;
+  if (btnD.isHeld()) {
+    if (!bBtnD_old) {
+      bBtnD_old = true;
       btnD_Held = true;
-      bBtnD_Reset=btnD.resetClicked();
+      bBtnD_Reset = btnD.resetClicked();
+      savePreset(3);  // long press: save to preset D
     }
-  }else{
-    bBtnD_old=false;
+  } else {
+    bBtnD_old = false;
+    if (btnD.isClicked()) {
+      if (bBtnD_Reset == false && btnD_Held == false) loadPreset(3);  // short click: recall preset D
+      btnD.resetClicked();
+      bBtnD_Reset = false;
+      btnD_Held = false;
+    }
   }
 }
 
