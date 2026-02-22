@@ -16,7 +16,7 @@
 #include <BlockNot.h>
 #include <EEPROM.h>
 
-#define VERSION "0.90"
+#define VERSION "0.92"
 
 #define PRESET_COUNT 4
 #define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
@@ -686,6 +686,12 @@ void processScale(uint8_t *midiPacket, uint8_t outIndex) {
 void processVelocity(uint8_t *midiPacket, uint8_t outIndex){
   uint8_t iStatus = midiPacket[0] & 0xF0;
   if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
+  // Note OFF (0x80): always send velocity 0 so it stays a note off
+  if (iStatus == 0x80) {
+    midiPacket[2] = 0;
+    return;
+  }
+  // Note ON (0x90): apply velocity setting
   uint8_t v = settings.output[outIndex].velocity;
   switch (v) {
     case VELOCITY_FIX_63:   midiPacket[2] = 63; break;
