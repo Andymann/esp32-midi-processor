@@ -16,7 +16,7 @@
 #include <BlockNot.h>
 #include <EEPROM.h>
 
-#define VERSION "0.40"
+#define VERSION "0.90"
 
 #define PRESET_COUNT 4
 #define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
@@ -72,6 +72,7 @@ BlockNot tmrIn2(50);
 BlockNot tmrOut1(50);
 BlockNot tmrOut2(50);
 BlockNot tmrUSB(50);
+BlockNot tmr Display(3000);
 
 bool bBtnA_Reset = false;
 bool bBtnB_Reset = false;
@@ -420,6 +421,7 @@ void savePreset(uint8_t slot) {
   EEPROM.write(addr, 1);  // valid
   EEPROM.put(addr + 1, settings);
   EEPROM.commit();
+  tmrDisplay.RESET;
   displayText("Preset", String((char)('A' + slot)) + " saved", "", "");
 }
 
@@ -434,9 +436,8 @@ void loadPreset(uint8_t slot) {
   EEPROM.get(addr + 1, settings);
   syncFeaturesFromSettings();
   iRootNoteOffset = (settings.output[0].rootNote > ROOTNOTE_PASSTHROUGH) ? (settings.output[0].rootNote - 1) : 0;
+  tmrDisplay.RESET;
   displayText("Preset", String((char)('A' + slot)) + " loaded", "", "");
-  delay(3000);
-  displayText(getMenuItem(iMenuPosition), getMenuItem(iMenuPosition + 1), getMenuItem(iMenuPosition + 2), "");
 }
 
 // Update arrFeatures[] selection to match current settings (after load preset).
@@ -546,6 +547,11 @@ void loop() {
     pixels.setPixelColor(4, pixels.Color(LED_OFF, LED_OFF, LED_OFF));
     pixels.show();
   }  
+
+  // Re-show display after loading or storing a preset
+  if(tmrDisplay.FIRST_TRIGGER){
+    displayText(getMenuItem(iMenuPosition), getMenuItem(iMenuPosition + 1), getMenuItem(iMenuPosition + 2), "");
+  }
 
 
 }// Loop
