@@ -413,13 +413,11 @@ void setup() {
 
 
 // Build settings from current arrFeatures[] selection (call after processEncoderClick / at startup)
+// Only updates the specific output for each selected feature; other outputs keep their values.
 void syncSettingsFromFeatures() {
   settings.routingIn1 = ROUTING_TO_NONE;
   settings.routingIn2 = ROUTING_TO_NONE;
   settings.routingIn3 = ROUTING_TO_NONE;
-  for (uint8_t o = 0; o < 3; o++) {
-    settings.output[o] = kDefaultOutput;
-  }
 
   for (uint8_t i = 0; i < FEATURECOUNT; i++) {
     if (!arrFeatures[i].isSelected()) continue;
@@ -891,22 +889,23 @@ String getFeaturePrefix(uint8_t pIndex){
 }
 
 void processEncoderClick(){
-  // We are at iMenuPosition
+  // Deselect only others in the same feature group AND same output (so each output keeps its own choice)
   uint8_t tmpFG = arrFeatures[iMenuPosition].getFeatureGroup();
-  for(uint8_t i=0; i< FEATURECOUNT; i++){
-    if( arrFeatures[i].getFeatureGroup() == tmpFG){
+  uint8_t tmpOutport = arrFeatures[iMenuPosition].getOutport();
+  for (uint8_t i = 0; i < FEATURECOUNT; i++) {
+    if (arrFeatures[i].getFeatureGroup() == tmpFG && arrFeatures[i].getOutport() == tmpOutport) {
       arrFeatures[i].select(false);
     }
   }
 
-  // If scale passthrough is selected then we select root-note-passthrough.
-  if(arrFeatures[iMenuPosition].getFeatureGroup()==FEATURE_GROUP_SCALE){
-    if(arrFeatures[iMenuPosition].getFeature()==SCALE_PASSTHRU){
-      for(uint8_t i=0; i< FEATURECOUNT; i++){
-        if( arrFeatures[i].getFeatureGroup() == FEATURE_GROUP_ROOTNOTE){
-          if(arrFeatures[i].getFeature()==ROOTNOTE_PASSTHROUGH){
+  // If scale passthrough is selected for this output, select root-note-passthrough for same output only.
+  if (arrFeatures[iMenuPosition].getFeatureGroup() == FEATURE_GROUP_SCALE) {
+    if (arrFeatures[iMenuPosition].getFeature() == SCALE_PASSTHRU) {
+      for (uint8_t i = 0; i < FEATURECOUNT; i++) {
+        if (arrFeatures[i].getFeatureGroup() == FEATURE_GROUP_ROOTNOTE && arrFeatures[i].getOutport() == tmpOutport) {
+          if (arrFeatures[i].getFeature() == ROOTNOTE_PASSTHROUGH) {
             arrFeatures[i].select(true);
-          }else{
+          } else {
             arrFeatures[i].select(false);
           }
         }
