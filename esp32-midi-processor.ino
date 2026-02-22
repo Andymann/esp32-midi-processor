@@ -665,7 +665,7 @@ void processScale(uint8_t *midiPacket, uint8_t outIndex) {
   const uint8_t *intervals;
   if (scale == SCALE_MAJOR) {
     intervals = majorIntervals;
-    } else if (scale == SCALE_MINOR) {
+  } else if (scale == SCALE_MINOR) {
       intervals = minorIntervals;
   } else if(scale == SCALE_PENTATONIC_MAJOR) {
     intervals = pentaMajorIntervals;
@@ -725,15 +725,16 @@ void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
 
   if (iRoutingTarget == ROUTING_TO_NONE) return;
 
-  // Apply per-output modifiers and send to each destination
+  // Apply per-output modifiers and send to each destination.
+  // processScale must run last so its 0xFF drop is not overwritten by processVelocity.
   uint8_t tmpPacket[3];
   for (uint8_t outIndex = 0; outIndex < 3; outIndex++) {
     if (!routingSendsToOutput(iRoutingTarget, outIndex)) continue;
     copyData(tmpPacket, midiPacket);
-    processScale(tmpPacket, outIndex);      // filter notes to scale (drops if out of scale)
     processVelocity(tmpPacket, outIndex);
     process_Note_Channel(tmpPacket, outIndex);
     process_CC_Channel(tmpPacket, outIndex);
+    processScale(tmpPacket, outIndex);      // filter notes to scale (drops if out of scale)
     sendToOutput(outIndex, tmpPacket);
   }
 }
