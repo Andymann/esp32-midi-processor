@@ -136,7 +136,7 @@ AppFeature arrFeatures[] = {
   AppFeature("2 Vel Rnd", 2, FEATURE_GROUP_VELOCITY, VELOCITY_RANDOM),
   AppFeature("2 Vel Rnd100", 2, FEATURE_GROUP_VELOCITY, VELOCITY_RANDOM_100),
 
-  AppFeature("13 Vel PT", 3, FEATURE_GROUP_VELOCITY, VELOCITY_PASSTHRU, true),
+  AppFeature("3 Vel PT", 3, FEATURE_GROUP_VELOCITY, VELOCITY_PASSTHRU, true),
   AppFeature("3 Vel Fix63", 3, FEATURE_GROUP_VELOCITY, VELOCITY_FIX_63),
   AppFeature("3 Vel Fix100", 3, FEATURE_GROUP_VELOCITY, VELOCITY_FIX_100),
   AppFeature("3 Vel Fix127", 3, FEATURE_GROUP_VELOCITY, VELOCITY_FIX_127),
@@ -278,7 +278,7 @@ AppFeature arrFeatures[] = {
   AppFeature("1 CC Ch 15", 1, FEATURE_GROUP_CC_CHANNEL, CHANNEL_15),
   AppFeature("1 CC Ch 16", 1, FEATURE_GROUP_CC_CHANNEL, CHANNEL_16),
 
-    AppFeature("2 CC Ch PT", 2, FEATURE_GROUP_CC_CHANNEL, CHANNEL_PASSTHRU, true),
+  AppFeature("2 CC Ch PT", 2, FEATURE_GROUP_CC_CHANNEL, CHANNEL_PASSTHRU, true),
   AppFeature("2 CC Ch 1", 2, FEATURE_GROUP_CC_CHANNEL, CHANNEL_1),
   AppFeature("2 CC Ch 2", 2, FEATURE_GROUP_CC_CHANNEL, CHANNEL_2),
   AppFeature("2 CC Ch 3", 2, FEATURE_GROUP_CC_CHANNEL, CHANNEL_3),
@@ -320,22 +320,31 @@ const uint8_t FEATURECOUNT = 194;
 int iMenuPosition = -3;
 uint8_t iRootNoteOffset = 0;
 
-// Resolved settings from arrFeatures[] – synced on encoder click, used without for-loops
+// Per-output settings: index 0 = MIDI out 1, 1 = MIDI out 2, 2 = USB out
 typedef struct {
-  uint8_t routingIn1;
-  uint8_t routingIn2;
-  uint8_t routingIn3;
   uint8_t velocity;
   uint8_t noteChannel;
   uint8_t ccChannel;
   uint8_t scale;
   uint8_t rootNote;
+} OutputSettings;
+
+// Resolved settings from arrFeatures[] – synced on encoder click, used without for-loops
+typedef struct {
+  uint8_t routingIn1;
+  uint8_t routingIn2;
+  uint8_t routingIn3;
+  OutputSettings output[3];
 } AppSettings;
+
+static const OutputSettings kDefaultOutput = {
+  VELOCITY_PASSTHRU, CHANNEL_PASSTHRU, CHANNEL_PASSTHRU,
+  SCALE_PASSTHRU, ROOTNOTE_PASSTHROUGH
+};
 
 AppSettings settings = {
   ROUTING_TO_NONE, ROUTING_TO_NONE, ROUTING_TO_NONE,
-  VELOCITY_PASSTHRU, CHANNEL_PASSTHRU, CHANNEL_PASSTHRU,
-  SCALE_PASSTHRU, ROOTNOTE_PASSTHROUGH
+  { kDefaultOutput, kDefaultOutput, kDefaultOutput }
 };
 
 void setup() {
@@ -397,7 +406,7 @@ void setup() {
   pixels.show();
 
   displayText("XXX32 Midi", "Firmware", "Firmware:", VERSION);
-  delay(1000);
+  delay(2000);
   processMenuNavigation(0);
   syncSettingsFromFeatures();
 }//Setup
@@ -408,26 +417,27 @@ void syncSettingsFromFeatures() {
   settings.routingIn1 = ROUTING_TO_NONE;
   settings.routingIn2 = ROUTING_TO_NONE;
   settings.routingIn3 = ROUTING_TO_NONE;
-  settings.velocity = VELOCITY_PASSTHRU;
-  settings.noteChannel = CHANNEL_PASSTHRU;
-  settings.ccChannel = CHANNEL_PASSTHRU;
-  settings.scale = SCALE_PASSTHRU;
-  settings.rootNote = ROOTNOTE_PASSTHROUGH;
+  for (uint8_t o = 0; o < 3; o++) {
+    settings.output[o] = kDefaultOutput;
+  }
 
   for (uint8_t i = 0; i < FEATURECOUNT; i++) {
     if (!arrFeatures[i].isSelected()) continue;
     uint8_t grp = arrFeatures[i].getFeatureGroup();
     uint8_t val = arrFeatures[i].getFeature();
+    uint8_t outport = arrFeatures[i].getOutport();
+    uint8_t o = (outport >= 1 && outport <= 3) ? (outport - 1) : 0;
+
     if (grp == FEATURE_GROUP_ROUTING_IN_1) settings.routingIn1 = val;
     else if (grp == FEATURE_GROUP_ROUTING_IN_2) settings.routingIn2 = val;
     else if (grp == FEATURE_GROUP_ROUTING_IN_3) settings.routingIn3 = val;
-    else if (grp == FEATURE_GROUP_VELOCITY) settings.velocity = val;
-    else if (grp == FEATURE_GROUP_NOTE_CHANNEL) settings.noteChannel = val;
-    else if (grp == FEATURE_GROUP_CC_CHANNEL) settings.ccChannel = val;
-    else if (grp == FEATURE_GROUP_SCALE) settings.scale = val;
+    else if (grp == FEATURE_GROUP_VELOCITY) settings.output[o].velocity = val;
+    else if (grp == FEATURE_GROUP_NOTE_CHANNEL) settings.output[o].noteChannel = val;
+    else if (grp == FEATURE_GROUP_CC_CHANNEL) settings.output[o].ccChannel = val;
+    else if (grp == FEATURE_GROUP_SCALE) settings.output[o].scale = val;
     else if (grp == FEATURE_GROUP_ROOTNOTE) {
-      settings.rootNote = val;
-      iRootNoteOffset = (val > ROOTNOTE_PASSTHROUGH) ? (val - 1) : 0;
+      settings.output[o].rootNote = val;
+      if (o == 0) iRootNoteOffset = (val > ROOTNOTE_PASSTHROUGH) ? (val - 1) : 0;
     }
   }
 }
@@ -513,42 +523,25 @@ void readData(){
 }
 
 /*
-  In order to allow individual settings per output (e.g. fixed velo on out1, random velo on out2) the 
-  modulators are applied to a temporary copy of the input's packet. Since we can only output data
-  consecutively we iterate through every input-routing to decide what to do with the incoming data saved in 
-  midiPacket_IN1
+  Per-output modifiers (velocity, note ch, cc ch) are applied inside sendPacket for each destination.
+  We pass the raw input packet; sendPacket copies and applies each output's settings then sends.
 */
 void processData(uint8_t pInput){
-  uint8_t tmpPacket[3];
-  if(pInput==1){
-    if(midiPacket_IN1[2] != 0xFF){
-      copyData(tmpPacket, midiPacket_IN1);  // Daten landen in tmpPacket
-      processVelocity(tmpPacket); // Daten bleiben in in tmpPacket
-      process_Note_Channel(tmpPacket);
-      process_CC_Channel(tmpPacket);
-      sendPacket(1, tmpPacket);
-      midiPacket_IN1[2] = 0xFF; // prevent repeated sending; 0xFF doesnt hurt
+  if (pInput == 1) {
+    if (midiPacket_IN1[2] != 0xFF) {
+      sendPacket(1, midiPacket_IN1);
+      midiPacket_IN1[2] = 0xFF;
     }
-  }else if(pInput==2){
-    if(midiPacket_IN2[2] != 0xFF){
-      copyData(tmpPacket, midiPacket_IN2);  // Daten landen in tmpPacket
-      processVelocity(tmpPacket); // Daten bleiben in in tmpPacket
-      process_Note_Channel(tmpPacket);
-      process_CC_Channel(tmpPacket);
-      sendPacket(2, tmpPacket);
-      midiPacket_IN2[2] = 0xFF; // prevent repeated sending; 0xFF doesnt hurt
+  } else if (pInput == 2) {
+    if (midiPacket_IN2[2] != 0xFF) {
+      sendPacket(2, midiPacket_IN2);
+      midiPacket_IN2[2] = 0xFF;
     }
-  }else if(pInput==3){
-    if(midiPacket_IN3[2] != 0xFF){
-      copyData(tmpPacket, midiPacket_IN3);
-      processVelocity(tmpPacket);
-      process_Note_Channel(tmpPacket);
-      process_CC_Channel(tmpPacket);
-      sendPacket(3, tmpPacket);
+  } else if (pInput == 3) {
+    if (midiPacket_IN3[2] != 0xFF) {
+      sendPacket(3, midiPacket_IN3);
       midiPacket_IN3[2] = 0xFF;
     }
-  }else{
-    // wtf?
   }
 }
 
@@ -558,10 +551,35 @@ void copyData(uint8_t *theArray, uint8_t pInPacket[]) {
   }
 }
 
-void processVelocity(uint8_t *midiPacket){
+// True if this routing target sends to the given output (0=out1, 1=out2, 2=USB)
+bool routingSendsToOutput(uint8_t routing, uint8_t outIndex) {
+  if (routing == ROUTING_TO_NONE) return false;
+  switch (routing) {
+    case ROUTING_TO_1:  return outIndex == 0;
+    case ROUTING_TO_2:  return outIndex == 1;
+    case ROUTING_TO_3:  return outIndex == 2;
+    case ROUTING_TO_12: return outIndex == 0 || outIndex == 1;
+    case ROUTING_TO_13: return outIndex == 0 || outIndex == 2;
+    case ROUTING_TO_23: return outIndex == 1 || outIndex == 2;
+    case ROUTING_TO_123: return true;
+    default: return false;
+  }
+}
+
+// Send packet to a single output (0=Serial1, 1=Serial2, 2=USB)
+void sendToOutput(uint8_t outIndex, uint8_t *midiPacket) {
+  if (midiPacket[2] == 0xFF) return;
+  flashLED(outIndex + 1);
+  if (outIndex == 0) Serial1.write(midiPacket, 3);
+  else if (outIndex == 1) Serial2.write(midiPacket, 3);
+  else if (outIndex == 2) { /* USB out: TODO when Midi.SendData available */ }
+}
+
+void processVelocity(uint8_t *midiPacket, uint8_t outIndex){
   uint8_t iStatus = midiPacket[0] & 0xF0;
   if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
-  switch (settings.velocity) {
+  uint8_t v = settings.output[outIndex].velocity;
+  switch (v) {
     case VELOCITY_FIX_63:   midiPacket[2] = 63; break;
     case VELOCITY_FIX_100:  midiPacket[2] = 100; break;
     case VELOCITY_FIX_127:  midiPacket[2] = 127; break;
@@ -571,21 +589,20 @@ void processVelocity(uint8_t *midiPacket){
   }
 }
 
-void process_Note_Channel(uint8_t *midiPacket){
+void process_Note_Channel(uint8_t *midiPacket, uint8_t outIndex){
   uint8_t iStatus = midiPacket[0] & 0xF0;
   if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
-  if (settings.noteChannel != CHANNEL_PASSTHRU) {
-    midiPacket[0] = (midiPacket[0] & 0xF0) + settings.noteChannel - 1;
+  if (settings.output[outIndex].noteChannel != CHANNEL_PASSTHRU) {
+    midiPacket[0] = (midiPacket[0] & 0xF0) + settings.output[outIndex].noteChannel - 1;
   }
 }
 
-void process_CC_Channel(uint8_t *midiPacket){
+void process_CC_Channel(uint8_t *midiPacket, uint8_t outIndex){
   if ((midiPacket[0] & 0xF0) != 0xB0) return; // Nur midi CCs
-  if (settings.ccChannel != CHANNEL_PASSTHRU) {
-    midiPacket[0] = (midiPacket[0] & 0xF0) + settings.ccChannel - 1;
+  if (settings.output[outIndex].ccChannel != CHANNEL_PASSTHRU) {
+    midiPacket[0] = (midiPacket[0] & 0xF0) + settings.output[outIndex].ccChannel - 1;
   }
 }
-
 
 void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
   if (midiPacket[2] == 0xFF) return;
@@ -597,41 +614,15 @@ void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
 
   if (iRoutingTarget == ROUTING_TO_NONE) return;
 
-  switch (iRoutingTarget) {
-    case ROUTING_TO_1:
-      flashLED(1);
-      Serial1.write(midiPacket, 3);
-      break;
-    case ROUTING_TO_2:
-      Serial2.write(midiPacket, 3);
-      flashLED(2);
-      break;
-    case ROUTING_TO_3:
-      flashLED(3);
-      break;
-    case ROUTING_TO_12:
-      flashLED(1);
-      Serial1.write(midiPacket, 3);
-      flashLED(2);
-      Serial2.write(midiPacket, 3);
-      break;
-    case ROUTING_TO_13:
-      Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 1+3");
-      flashLED(1);
-      flashLED(3);
-      break;
-    case ROUTING_TO_23:
-      Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 2+3");
-      flashLED(2);
-      flashLED(3);
-      break;
-    case ROUTING_TO_123:
-      Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 1+2+3");
-      flashLED(1);
-      flashLED(2);
-      flashLED(3);
-      break;
-    default: break;
+  // Apply per-output modifiers and send to each destination
+  uint8_t tmpPacket[3];
+  for (uint8_t outIndex = 0; outIndex < 3; outIndex++) {
+    if (!routingSendsToOutput(iRoutingTarget, outIndex)) continue;
+    copyData(tmpPacket, midiPacket);
+    processVelocity(tmpPacket, outIndex);
+    process_Note_Channel(tmpPacket, outIndex);
+    process_CC_Channel(tmpPacket, outIndex);
+    sendToOutput(outIndex, tmpPacket);
   }
 }
 
