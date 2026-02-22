@@ -72,7 +72,7 @@ BlockNot tmrIn2(50);
 BlockNot tmrOut1(50);
 BlockNot tmrOut2(50);
 BlockNot tmrUSB(50);
-BlockNot tmr Display(3000);
+BlockNot tmrDisplay(3000);
 
 bool bBtnA_Reset = false;
 bool bBtnB_Reset = false;
@@ -412,6 +412,8 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE);
   processMenuNavigation(0);
   syncSettingsFromFeatures();
+
+  loadPreset(0);
 }//Setup
 
 // Save current settings to preset slot (0=A, 1=B, 2=C, 3=D). Persists across power cycle.
