@@ -7,14 +7,15 @@ AppFeature::AppFeature(String pText, uint8_t pOutport, uint8_t pFeatureGroup, ui
   iFeatureGroup = pFeatureGroup;
   sText = pText;
   iFeature = pFeature;
+  iOutport = pOutport;
 }
 
 AppFeature::AppFeature(String pText, uint8_t pOutport, uint8_t pFeatureGroup, uint8_t pFeature, bool pSelect){
   iFeatureGroup = pFeatureGroup;
   sText = pText;
   iFeature = pFeature;
+  iOutport = pOutport;
   bSelected = true;
-  //iOutput = pOutport;
 }
 
 String AppFeature::getText(){
