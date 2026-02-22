@@ -573,6 +573,28 @@ void sendToOutput(uint8_t outIndex, uint8_t *midiPacket) {
   else if (outIndex == 2) { /* USB out: TODO when Midi.SendData available */ }
 }
 
+// Only pass through notes that fit the selected scale and root. Others are dropped (midiPacket[2] = 0xFF).
+// Implemented: SCALE_MAJOR + ROOTNOTE_C only (notes C, D, E, F, G, A, B).
+void processScale(uint8_t *midiPacket, uint8_t outIndex) {
+  uint8_t status = midiPacket[0] & 0xF0;
+  if (status != 0x80 && status != 0x90) return; // only filter note on/off
+
+  uint8_t scale = settings.output[outIndex].scale;
+  uint8_t root = settings.output[outIndex].rootNote;
+  if (scale == SCALE_PASSTHRU || root == ROOTNOTE_PASSTHROUGH) return;
+
+  if (scale == SCALE_MAJOR && root == ROOTNOTE_C) {
+    // C major: allowed pitch classes 0,2,4,5,7,9,11 (C,D,E,F,G,A,B)
+    static const uint8_t cMajorAllowed[] = { 0, 2, 4, 5, 7, 9, 11 };
+    uint8_t pc = midiPacket[1] % 12;
+    bool inScale = false;
+    for (uint8_t i = 0; i < 7; i++) {
+      if (cMajorAllowed[i] == pc) { inScale = true; break; }
+    }
+    if (!inScale) midiPacket[2] = 0xFF; // drop note so sendToOutput skips it
+  }
+}
+
 void processVelocity(uint8_t *midiPacket, uint8_t outIndex){
   uint8_t iStatus = midiPacket[0] & 0xF0;
   if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
@@ -617,6 +639,7 @@ void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
   for (uint8_t outIndex = 0; outIndex < 3; outIndex++) {
     if (!routingSendsToOutput(iRoutingTarget, outIndex)) continue;
     copyData(tmpPacket, midiPacket);
+    processScale(tmpPacket, outIndex);      // filter notes to scale (drops if out of scale)
     processVelocity(tmpPacket, outIndex);
     process_Note_Channel(tmpPacket, outIndex);
     process_CC_Channel(tmpPacket, outIndex);
