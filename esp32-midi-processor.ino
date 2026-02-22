@@ -210,7 +210,25 @@ AppFeature arrFeatures[] = {
 
 const uint8_t FEATURECOUNT = 95;
 int iMenuPosition = -3;
-uint8_t iRootNoteOffset=0;
+uint8_t iRootNoteOffset = 0;
+
+// Resolved settings from arrFeatures[] – synced on encoder click, used without for-loops
+typedef struct {
+  uint8_t routingIn1;
+  uint8_t routingIn2;
+  uint8_t routingIn3;
+  uint8_t velocity;
+  uint8_t noteChannel;
+  uint8_t ccChannel;
+  uint8_t scale;
+  uint8_t rootNote;
+} AppSettings;
+
+AppSettings settings = {
+  ROUTING_TO_NONE, ROUTING_TO_NONE, ROUTING_TO_NONE,
+  VELOCITY_PASSTHRU, CHANNEL_PASSTHRU, CHANNEL_PASSTHRU,
+  SCALE_PASSTHRU, ROOTNOTE_PASSTHROUGH
+};
 
 void setup() {
 
@@ -273,27 +291,35 @@ void setup() {
   displayText("XXX32 Midi", "Firmware", "Firmware:", VERSION);
   delay(1000);
   processMenuNavigation(0);
+  syncSettingsFromFeatures();
 }//Setup
 
 
-typedef struct{
-  uint8_t Velocity = VELOCITY_PASSTHRU;
-  uint8_t NoteChannel = CHANNEL_PASSTHRU;
-  uint8_t CCChannel = CHANNEL_PASSTHRU;
-  uint8_t Scale = SCALE_PASSTHRU;
-} OutputSettings;
+// Build settings from current arrFeatures[] selection (call after processEncoderClick / at startup)
+void syncSettingsFromFeatures() {
+  settings.routingIn1 = ROUTING_TO_NONE;
+  settings.routingIn2 = ROUTING_TO_NONE;
+  settings.routingIn3 = ROUTING_TO_NONE;
+  settings.velocity = VELOCITY_PASSTHRU;
+  settings.noteChannel = CHANNEL_PASSTHRU;
+  settings.ccChannel = CHANNEL_PASSTHRU;
+  settings.scale = SCALE_PASSTHRU;
+  settings.rootNote = ROOTNOTE_PASSTHROUGH;
 
-OutputSettings output[3];
-
-
-/*
-Instead of repeated for..loops we are going to store the selected settings per output into 
-a set of reusable varia
-*/
-void enumSetting(){
-  for(uint8_t i=0; i<FEATURECOUNT; i++){
-    if(arrFeatures[i].isSelected()){
-    
+  for (uint8_t i = 0; i < FEATURECOUNT; i++) {
+    if (!arrFeatures[i].isSelected()) continue;
+    uint8_t grp = arrFeatures[i].getFeatureGroup();
+    uint8_t val = arrFeatures[i].getFeature();
+    if (grp == FEATURE_GROUP_ROUTING_IN_1) settings.routingIn1 = val;
+    else if (grp == FEATURE_GROUP_ROUTING_IN_2) settings.routingIn2 = val;
+    else if (grp == FEATURE_GROUP_ROUTING_IN_3) settings.routingIn3 = val;
+    else if (grp == FEATURE_GROUP_VELOCITY) settings.velocity = val;
+    else if (grp == FEATURE_GROUP_NOTE_CHANNEL) settings.noteChannel = val;
+    else if (grp == FEATURE_GROUP_CC_CHANNEL) settings.ccChannel = val;
+    else if (grp == FEATURE_GROUP_SCALE) settings.scale = val;
+    else if (grp == FEATURE_GROUP_ROOTNOTE) {
+      settings.rootNote = val;
+      iRootNoteOffset = (val > ROOTNOTE_PASSTHROUGH) ? (val - 1) : 0;
     }
   }
 }
@@ -364,37 +390,17 @@ void loop() {
   If no data were reeived, midiPacket_IN1 etc contain [0xFF, 0xFF, 0xFF] 
 */
 void readData(){
-  //Serial.println("readData()");
-  for(uint8_t i=0; i<FEATURECOUNT; i++){
-    if(arrFeatures[i].isSelected()){
-      uint8_t iRoutingSelection;
-      if(arrFeatures[i].getFeatureGroup()==FEATURE_GROUP_ROUTING_IN_1){
-        iRoutingSelection = arrFeatures[i].getFeature();
-        if( iRoutingSelection==ROUTING_TO_NONE ) {
-          // nix
-        }else{
-          checkMidiIn_1();
-          processData(1);
-        }
-      }
-      if(arrFeatures[i].getFeatureGroup()==FEATURE_GROUP_ROUTING_IN_2){
-        iRoutingSelection = arrFeatures[i].getFeature();
-        if(arrFeatures[i].getFeature()==ROUTING_TO_NONE) {
-          // nix
-        }else{
-          checkMidiIn_2();
-          processData(2);
-        }
-      }
-      if(arrFeatures[i].getFeatureGroup()==FEATURE_GROUP_ROUTING_IN_3){
-        if(arrFeatures[i].getFeature()==ROUTING_TO_NONE) {
-          // nix
-        }else{
-          checkMidiIn_USB();
-          processData(3);
-        }
-      }
-    }
+  if (settings.routingIn1 != ROUTING_TO_NONE) {
+    checkMidiIn_1();
+    processData(1);
+  }
+  if (settings.routingIn2 != ROUTING_TO_NONE) {
+    checkMidiIn_2();
+    processData(2);
+  }
+  if (settings.routingIn3 != ROUTING_TO_NONE) {
+    checkMidiIn_USB();
+    processData(3);
   }
 }
 
@@ -445,127 +451,79 @@ void copyData(uint8_t *theArray, uint8_t pInPacket[]) {
 }
 
 void processVelocity(uint8_t *midiPacket){
-  for(uint8_t i=0; i<FEATURECOUNT; i++){
-    if(arrFeatures[i].isSelected()){
-      if(arrFeatures[i].getFeatureGroup()==FEATURE_GROUP_VELOCITY){
-        uint8_t iStatus = midiPacket[0] & 0xF0;  
-        if((iStatus==0x80) or (iStatus==0x90)){ // Nur midi noten
-          //Serial.println("processVelocity()");
-          if(arrFeatures[i].getFeature()==VELOCITY_PASSTHRU) {
-            //nix
-          }
-          if(arrFeatures[i].getFeature()==VELOCITY_FIX_63) {
-            midiPacket[2] = 63;
-          }
-          if(arrFeatures[i].getFeature()==VELOCITY_FIX_100) {
-            midiPacket[2] = 100;
-          }
-          if(arrFeatures[i].getFeature()==VELOCITY_FIX_127) {
-            midiPacket[2] = 127;
-          }
-          if(arrFeatures[i].getFeature()==VELOCITY_RANDOM) {
-            uint8_t rnd=random(128);
-            midiPacket[2] = rnd;
-          }
-          if(arrFeatures[i].getFeature()==VELOCITY_RANDOM_100) {
-            uint8_t rnd=random(20);
-            midiPacket[2] = 91 + rnd;
-          }
-        }
-      }
-    }
+  uint8_t iStatus = midiPacket[0] & 0xF0;
+  if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
+  switch (settings.velocity) {
+    case VELOCITY_FIX_63:   midiPacket[2] = 63; break;
+    case VELOCITY_FIX_100:  midiPacket[2] = 100; break;
+    case VELOCITY_FIX_127:  midiPacket[2] = 127; break;
+    case VELOCITY_RANDOM:   midiPacket[2] = random(128); break;
+    case VELOCITY_RANDOM_100: midiPacket[2] = 91 + random(20); break;
+    default: break; // VELOCITY_PASSTHRU
   }
 }
 
 void process_Note_Channel(uint8_t *midiPacket){
-  for(uint8_t i=0; i<FEATURECOUNT; i++){
-    if(arrFeatures[i].isSelected()){
-      if(arrFeatures[i].getFeatureGroup()==FEATURE_GROUP_NOTE_CHANNEL){
-        uint8_t iStatus = midiPacket[0] & 0xF0;  
-        if((iStatus==0x80) or (iStatus==0x90)){ // Nur midi noten
-          //Serial.println("process_Note_Channel()");
-          if(arrFeatures[i].getFeature()==CHANNEL_PASSTHRU) {
-              //nix
-          }else{
-            midiPacket[0] = (midiPacket[0] & 0xF0) + arrFeatures[i].getFeature()-1;
-          }
-        }
-      }
-    }
+  uint8_t iStatus = midiPacket[0] & 0xF0;
+  if ((iStatus != 0x80) && (iStatus != 0x90)) return; // Nur midi noten
+  if (settings.noteChannel != CHANNEL_PASSTHRU) {
+    midiPacket[0] = (midiPacket[0] & 0xF0) + settings.noteChannel - 1;
   }
 }
 
 void process_CC_Channel(uint8_t *midiPacket){
-  for(uint8_t i=0; i<FEATURECOUNT; i++){
-    if(arrFeatures[i].isSelected()){
-      if(arrFeatures[i].getFeatureGroup()==FEATURE_GROUP_CC_CHANNEL){
-        uint8_t iStatus = midiPacket[0] & 0xF0;  
-        if(iStatus==0xB0) { // Nur midi CCs
-          //Serial.println("process_CC_Channel()");
-          if(arrFeatures[i].getFeature()==CHANNEL_PASSTHRU) {
-              //nix
-          }else{
-            midiPacket[0] = (midiPacket[0] & 0xF0) + arrFeatures[i].getFeature()-1;
-          }
-        }
-      }
-    }
+  if ((midiPacket[0] & 0xF0) != 0xB0) return; // Nur midi CCs
+  if (settings.ccChannel != CHANNEL_PASSTHRU) {
+    midiPacket[0] = (midiPacket[0] & 0xF0) + settings.ccChannel - 1;
   }
 }
 
 
 void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
-  if(midiPacket[2]==0xFF){
-    return;
-  }
-  for(uint8_t i=0; i<FEATURECOUNT; i++){
-    if(arrFeatures[i].isSelected()){
-      uint8_t iFeatureGroup;
-      if(pInFrom==1){
-        iFeatureGroup = FEATURE_GROUP_ROUTING_IN_1;
-      }else if(pInFrom==2){
-        iFeatureGroup = FEATURE_GROUP_ROUTING_IN_2;
-      }else if(pInFrom==3){
-        iFeatureGroup = FEATURE_GROUP_ROUTING_IN_3;
-      } 
-      if(arrFeatures[i].getFeatureGroup()==iFeatureGroup){
-        if(arrFeatures[i].getFeature()==ROUTING_TO_NONE){
-          //nix
-        }
-        uint8_t iRoutingTarget = arrFeatures[i].getFeature();
-        if(iRoutingTarget==ROUTING_TO_1){
-          //Serial.println("processRouting: Input " + String(pInFrom) + " to out 1");
-          flashLED(1);
-          Serial1.write(midiPacket, 3);
-        }else if(iRoutingTarget==ROUTING_TO_2){
-          //Serial.println("processRouting: Input " + String(pInFrom) + " to out 2");
-          Serial2.write(midiPacket, 3);
-          flashLED(2);
-        }else if(iRoutingTarget==ROUTING_TO_3){
-          //Serial.println("processRouting: Input " + String(pInFrom) + " to out 3");
-          flashLED(3);
-        }else if(iRoutingTarget==ROUTING_TO_12){
-          //Serial.println("processRouting: Input " + String(pInFrom) + " to out 1+2");
-          flashLED(1);
-          Serial1.write(midiPacket, 3);
-          flashLED(2);
-          Serial2.write(midiPacket, 3);
-        }else if(iRoutingTarget==ROUTING_TO_13){
-          Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 1+3");
-          flashLED(1);
-          flashLED(3);
-        }else if(iRoutingTarget==ROUTING_TO_23){
-          Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 2+3");
-          flashLED(2);
-          flashLED(3);
-        }else if(iRoutingTarget==ROUTING_TO_123){
-          Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 1+2+3");
-          flashLED(1);
-          flashLED(2);
-          flashLED(3);
-        }
-      }
-    }
+  if (midiPacket[2] == 0xFF) return;
+
+  uint8_t iRoutingTarget;
+  if (pInFrom == 1) iRoutingTarget = settings.routingIn1;
+  else if (pInFrom == 2) iRoutingTarget = settings.routingIn2;
+  else iRoutingTarget = settings.routingIn3;
+
+  if (iRoutingTarget == ROUTING_TO_NONE) return;
+
+  switch (iRoutingTarget) {
+    case ROUTING_TO_1:
+      flashLED(1);
+      Serial1.write(midiPacket, 3);
+      break;
+    case ROUTING_TO_2:
+      Serial2.write(midiPacket, 3);
+      flashLED(2);
+      break;
+    case ROUTING_TO_3:
+      flashLED(3);
+      break;
+    case ROUTING_TO_12:
+      flashLED(1);
+      Serial1.write(midiPacket, 3);
+      flashLED(2);
+      Serial2.write(midiPacket, 3);
+      break;
+    case ROUTING_TO_13:
+      Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 1+3");
+      flashLED(1);
+      flashLED(3);
+      break;
+    case ROUTING_TO_23:
+      Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 2+3");
+      flashLED(2);
+      flashLED(3);
+      break;
+    case ROUTING_TO_123:
+      Serial.println("processRouting TO BE DONE: Input " + String(pInFrom) + " to out 1+2+3");
+      flashLED(1);
+      flashLED(2);
+      flashLED(3);
+      break;
+    default: break;
   }
 }
 
@@ -866,6 +824,7 @@ void processEncoderClick(){
       iRootNoteOffset = arrFeatures[iMenuPosition].getFeature()-1; // <-- megapfiffig!
     }
   }
-  
+
+  syncSettingsFromFeatures();
   displayText(getMenuItem( iMenuPosition ), getMenuItem( iMenuPosition+1 ), getMenuItem( iMenuPosition+2 ) , "");
 }
