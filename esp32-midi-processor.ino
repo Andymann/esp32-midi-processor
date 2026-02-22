@@ -561,17 +561,28 @@ bool routingSendsToOutput(uint8_t routing, uint8_t outIndex) {
   }
 }
 
-// Send packet to a single output (0=Serial1, 1=Serial2, 2=USB)
+// Return MIDI packet length by status (2 for program change/channel pressure, 3 for most, 1 for realtime).
+static uint8_t getMidiPacketLen(uint8_t status) {
+  uint8_t s = status & 0xF0;
+  if (s == 0xC0 || s == 0xD0) return 2;  // program change, channel pressure
+  if (s >= 0xF0) return 1;               // system / realtime
+  return 3;                               // note on/off, aftertouch, CC, pitch bend
+}
+
+// Send packet to a single output (0=Serial1, 1=Serial2, 2=USB).
+// Only skip when it's a note that was filtered by scale (velocity 0xFF). All other MIDI passes through.
 void sendToOutput(uint8_t outIndex, uint8_t *midiPacket) {
-  if (midiPacket[2] == 0xFF) return;
+  uint8_t status = midiPacket[0] & 0xF0;
+  if ((status == 0x80 || status == 0x90) && midiPacket[2] == 0xFF) return; // scale-filtered note, don't send
+  uint8_t len = getMidiPacketLen(status);
   flashLED(outIndex + 1);
-  if (outIndex == 0) Serial1.write(midiPacket, 3);
-  else if (outIndex == 1) Serial2.write(midiPacket, 3);
+  if (outIndex == 0) Serial1.write(midiPacket, len);
+  else if (outIndex == 1) Serial2.write(midiPacket, len);
   else if (outIndex == 2) { /* USB out: TODO when Midi.SendData available */ }
 }
 
 // Only pass through notes that fit the selected scale and root. Others are dropped (midiPacket[2] = 0xFF).
-// Implemented: SCALE_MAJOR + ROOTNOTE_C only (notes C, D, E, F, G, A, B).
+// Implemented: SCALE_MAJOR and SCALE_MINOR (natural minor) for every root note (C through B).
 void processScale(uint8_t *midiPacket, uint8_t outIndex) {
   uint8_t status = midiPacket[0] & 0xF0;
   if (status != 0x80 && status != 0x90) return; // only filter note on/off
@@ -579,17 +590,36 @@ void processScale(uint8_t *midiPacket, uint8_t outIndex) {
   uint8_t scale = settings.output[outIndex].scale;
   uint8_t root = settings.output[outIndex].rootNote;
   if (scale == SCALE_PASSTHRU || root == ROOTNOTE_PASSTHROUGH) return;
+  if (root < ROOTNOTE_C || root > ROOTNOTE_H) return; // invalid root
 
-  if (scale == SCALE_MAJOR && root == ROOTNOTE_C) {
-    // C major: allowed pitch classes 0,2,4,5,7,9,11 (C,D,E,F,G,A,B)
-    static const uint8_t cMajorAllowed[] = { 0, 2, 4, 5, 7, 9, 11 };
-    uint8_t pc = midiPacket[1] % 12;
-    bool inScale = false;
-    for (uint8_t i = 0; i < 7; i++) {
-      if (cMajorAllowed[i] == pc) { inScale = true; break; }
-    }
-    if (!inScale) midiPacket[2] = 0xFF; // drop note so sendToOutput skips it
+  // Root note enum 1..12 (C..B) -> pitch class 0..11
+  uint8_t rootPc = root - 1;
+
+  // Intervals in semitones from root: major 0,2,4,5,7,9,11 ; natural minor 0,2,3,5,7,8,10
+  static const uint8_t majorIntervals[]   = { 0, 2, 4, 5, 7, 9, 11 };
+  static const uint8_t minorIntervals[]   = { 0, 2, 3, 5, 7, 8, 10 };
+  static const uint8_t pentaMajorIntervals[]   = { 0, 2, 4, 7, 9};
+  static const uint8_t pentaMinorIntervals[]   = { 0, 3, 5, 7, 10};
+
+  const uint8_t *intervals;
+  if (scale == SCALE_MAJOR) {
+    intervals = majorIntervals;
+    } else if (scale == SCALE_MINOR) {
+      intervals = minorIntervals;
+  } else if(scale == SCALE_PENTATONIC_MAJOR) {
+    intervals = pentaMajorIntervals;
+  } else if(scale == SCALE_PENTATONIC_MINOR) {
+    intervals = pentaMinorIntervals;
+  else {
+    return; // SCALE_PENTATONIC_* etc. not implemented
   }
+
+  uint8_t pc = midiPacket[1] % 12;
+  bool inScale = false;
+  for (uint8_t i = 0; i < 7; i++) {
+    if ((rootPc + intervals[i]) % 12 == pc) { inScale = true; break; }
+  }
+  if (!inScale) midiPacket[2] = 0xFF; // drop note so sendToOutput skips it
 }
 
 void processVelocity(uint8_t *midiPacket, uint8_t outIndex){
@@ -622,7 +652,10 @@ void process_CC_Channel(uint8_t *midiPacket, uint8_t outIndex){
 }
 
 void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
-  if (midiPacket[2] == 0xFF) return;
+  // Only skip entire packet for "no data" sentinel (note with vel 0xFF before processing).
+  // Other messages (CC, program change, pitch bend, etc.) always pass through by routing.
+  uint8_t status = midiPacket[0] & 0xF0;
+  if ((status == 0x80 || status == 0x90) && midiPacket[2] == 0xFF) return; // no note data to send
 
   uint8_t iRoutingTarget;
   if (pInFrom == 1) iRoutingTarget = settings.routingIn1;
