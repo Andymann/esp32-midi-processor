@@ -98,6 +98,34 @@ struct MidiPacket {
   bool drop;  // true = no data / do not send (filtered or already consumed)
 };
 
+// Queue: up to 10 incoming MIDI events, processed in order (FIFO)
+#define MIDI_QUEUE_SIZE 10
+struct QueuedMidiEvent {
+  MidiPacket pkt;
+  uint8_t source;  // 1, 2, or 3 for input 1, 2, USB
+};
+static QueuedMidiEvent midiQueue[MIDI_QUEUE_SIZE];
+static uint8_t queueHead = 0;  // next write
+static uint8_t queueTail = 0;  // next read
+static uint8_t queueCount = 0;
+
+static bool pushMidiQueue(const MidiPacket *pkt, uint8_t source) {
+  if (queueCount >= MIDI_QUEUE_SIZE) return false;
+  midiQueue[queueHead].pkt = *pkt;
+  midiQueue[queueHead].pkt.drop = false;
+  midiQueue[queueHead].source = source;
+  queueHead = (queueHead + 1) % MIDI_QUEUE_SIZE;
+  queueCount++;
+  return true;
+}
+static bool popMidiQueue(QueuedMidiEvent *out) {
+  if (queueCount == 0) return false;
+  *out = midiQueue[queueTail];
+  queueTail = (queueTail + 1) % MIDI_QUEUE_SIZE;
+  queueCount--;
+  return true;
+}
+
 MidiPacket midiPacket_IN1 = { {0xFF, 0xFF, 0xFF}, true };
 MidiPacket midiPacket_IN2 = { {0xFF, 0xFF, 0xFF}, true };
 MidiPacket midiPacket_IN3 = { {0xFF, 0xFF, 0xFF}, true };
@@ -508,7 +536,13 @@ void loop() {
     uint8_t size;
     do {
       size = Midi.RecvData(midiPacket_IN3.data);
-      if (size > 0) midiPacket_IN3.drop = false;
+      if (size > 0) {
+        midiPacket_IN3.drop = false;
+        pushMidiQueue(&midiPacket_IN3, 3);  // USB = source 3
+        pixels.setPixelColor(4, pixels.Color(LED_ON, LED_ON, LED_OFF));
+        pixels.show();
+        tmrUSB.RESET;
+      }
     } while (size > 0);
   }
 
@@ -566,45 +600,20 @@ void loop() {
 }// Loop
 
 /*
-  Based on routing-configuration the input from Midi1, Midi2 and USB might be interesting
-  this function makes sure that there's data in midiPacket_IN1, midiPacket_IN2 and midiPacket_IN3.
-  If no data were received, .drop is true (no packet to process). 
+  Drain serial/USB into the MIDI queue, then process queued events in order (FIFO, up to 10).
 */
 void readData(){
-  if (settings.routingIn1 != ROUTING_TO_NONE) {
-    checkMidiIn_1();
-    processData(1);
-  }
-  if (settings.routingIn2 != ROUTING_TO_NONE) {
-    checkMidiIn_2();
-    processData(2);
-  }
-  if (settings.routingIn3 != ROUTING_TO_NONE) {
-    checkMidiIn_USB();
-    processData(3);
-  }
+  checkMidiIn_1();
+  checkMidiIn_2();
+  checkMidiIn_USB();
+  processMidiQueue();
 }
 
-/*
-  Per-output modifiers (velocity, note ch, cc ch) are applied inside sendPacket for each destination.
-  We pass the raw input packet; sendPacket copies and applies each output's settings then sends.
-*/
-void processData(uint8_t pInput){
-  if (pInput == 1) {
-    if (!midiPacket_IN1.drop) {
-      sendPacket(1, &midiPacket_IN1);
-      midiPacket_IN1.drop = true;
-    }
-  } else if (pInput == 2) {
-    if (!midiPacket_IN2.drop) {
-      sendPacket(2, &midiPacket_IN2);
-      midiPacket_IN2.drop = true;
-    }
-  } else if (pInput == 3) {
-    if (!midiPacket_IN3.drop) {
-      sendPacket(3, &midiPacket_IN3);
-      midiPacket_IN3.drop = true;
-    }
+// Process all queued MIDI events in order (FIFO)
+void processMidiQueue() {
+  QueuedMidiEvent ev;
+  while (popMidiQueue(&ev)) {
+    sendPacket(ev.source, &ev.pkt);
   }
 }
 
@@ -870,7 +879,7 @@ void checkButton_Enc(){
   }
 }
 
-// Stores up to(!) 3 bytes into midiPacket_IN1
+// Read up to 3 bytes from Serial1 into midiPacket_IN1; when complete, push to queue (source 1)
 void checkMidiIn_1(){
   while ((Serial1.available() > 0) && (iCounter_IN1 < 3)) {
     pixels.setPixelColor(0, pixels.Color(LED_ON, LED_ON, LED_OFF));
@@ -884,12 +893,12 @@ void checkMidiIn_1(){
     iCounter_IN1++;
     if (iCounter_IN1 == 3) {
       iCounter_IN1 = 0;
-      midiPacket_IN1.drop = false;  // packet ready to process
+      pushMidiQueue(&midiPacket_IN1, 1);
     }
   }
 }
 
-
+// Read up to 3 bytes from Serial2 into midiPacket_IN2; when complete, push to queue (source 2)
 void checkMidiIn_2(){
   while ((Serial2.available() > 0) && (iCounter_IN2 < 3)) {
     pixels.setPixelColor(1, pixels.Color(LED_ON, LED_ON, LED_OFF));
@@ -903,18 +912,14 @@ void checkMidiIn_2(){
     iCounter_IN2++;
     if (iCounter_IN2 == 3) {
       iCounter_IN2 = 0;
-      midiPacket_IN2.drop = false;  // packet ready to process
+      pushMidiQueue(&midiPacket_IN2, 2);
     }
   }
 }
 
-// USB is handled differently (RecvData in loop sets .drop = false when data received)
+// USB packets are pushed in loop() when RecvData returns; here we only flash LED if queue had USB data
 void checkMidiIn_USB(){
-  if (!midiPacket_IN3.drop) {
-    pixels.setPixelColor(4, pixels.Color(LED_ON, LED_ON, LED_OFF));
-    pixels.show();
-    tmrUSB.RESET;
-  }
+  (void)0;  // LED for USB activity could be driven by queue if we tracked last source
 }
 
  
