@@ -883,7 +883,7 @@ void checkButton_Enc(){
   }
 }
 
-// Read up to 3 bytes from Serial1; when complete, push to queue (source 1). All MIDI is passed through based on routing.
+// Read up to 3 bytes from Serial1; when complete, push to queue (source 1). Realtime (clock/start/stop) = 1 byte, push immediately.
 void checkMidiIn_1(){
   while ((Serial1.available() > 0) && (iCounter_IN1 < 3)) {
     pixels.setPixelColor(0, pixels.Color(LED_ON, LED_ON, LED_OFF));
@@ -892,7 +892,10 @@ void checkMidiIn_1(){
     byte tmp = Serial1.read();
     midiPacket_IN1.data[iCounter_IN1] = tmp;
     if ((tmp == MIDI_START) || (tmp == MIDI_STOP) || (tmp == MIDI_CLOCK)) {
-      iCounter_IN1 = 3;
+      midiPacket_IN1.drop = false;
+      pushMidiQueue(&midiPacket_IN1, 1);
+      iCounter_IN1 = 0;
+      continue;
     }
     iCounter_IN1++;
     if (iCounter_IN1 == 3) {
@@ -902,7 +905,7 @@ void checkMidiIn_1(){
   }
 }
 
-// Read up to 3 bytes from Serial2; when complete, push to queue (source 2). All MIDI is passed through based on routing.
+// Read up to 3 bytes from Serial2; when complete, push to queue (source 2). Realtime (clock/start/stop) = 1 byte, push immediately.
 void checkMidiIn_2(){
   while ((Serial2.available() > 0) && (iCounter_IN2 < 3)) {
     pixels.setPixelColor(1, pixels.Color(LED_ON, LED_ON, LED_OFF));
@@ -911,7 +914,10 @@ void checkMidiIn_2(){
     byte tmp = Serial2.read();
     midiPacket_IN2.data[iCounter_IN2] = tmp;
     if ((tmp == MIDI_START) || (tmp == MIDI_STOP) || (tmp == MIDI_CLOCK)) {
-      iCounter_IN2 = 3;
+      midiPacket_IN2.drop = false;
+      pushMidiQueue(&midiPacket_IN2, 2);
+      iCounter_IN2 = 0;
+      continue;
     }
     iCounter_IN2++;
     if (iCounter_IN2 == 3) {
