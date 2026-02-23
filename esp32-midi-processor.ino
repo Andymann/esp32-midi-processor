@@ -349,6 +349,21 @@ AppFeature arrFeatures[] = {
   AppFeature("3 CC Ch 14", 3, FEATURE_GROUP_CC_CHANNEL, CHANNEL_14),
   AppFeature("3 CC Ch 15", 3, FEATURE_GROUP_CC_CHANNEL, CHANNEL_15),
   AppFeature("3 CC Ch 16", 3, FEATURE_GROUP_CC_CHANNEL, CHANNEL_16),
+
+  AppFeature("1 Block None", 1, FEATURE_GROUP_FILTER, BLOCK_NONE, true),   // pass all (default)
+  AppFeature("1 Block Clock", 1, FEATURE_GROUP_FILTER, BLOCK_CLOCK),
+  AppFeature("1 Clock Only", 1, FEATURE_GROUP_FILTER, FILTER_CLOCK),        // only clock/start/stop
+
+  AppFeature("2 Block None", 2, FEATURE_GROUP_FILTER, BLOCK_NONE, true),
+  AppFeature("2 Block Clock", 2, FEATURE_GROUP_FILTER, BLOCK_CLOCK),
+  AppFeature("2 Clock Only", 2, FEATURE_GROUP_FILTER, FILTER_CLOCK),
+
+  AppFeature("3 Block None", 3, FEATURE_GROUP_FILTER, BLOCK_NONE, true),
+  AppFeature("3 Block Clock", 3, FEATURE_GROUP_FILTER, BLOCK_CLOCK),
+  AppFeature("3 Clock Only", 3, FEATURE_GROUP_FILTER, FILTER_CLOCK),
+
+
+  
   AppFeature(" ", 0, FEATURE_GROUP_PLACEHOLDER, 0)
 };
 
@@ -363,6 +378,7 @@ typedef struct {
   uint8_t ccChannel;
   uint8_t scale;
   uint8_t rootNote;
+  uint8_t clockFilter;  // BLOCK_NONE, BLOCK_CLOCK, FILTER_CLOCK (FEATURE_GROUP_FILTER)
 } OutputSettings;
 
 // Resolved settings from arrFeatures[] – synced on encoder click, used without for-loops
@@ -375,7 +391,7 @@ typedef struct {
 
 static const OutputSettings kDefaultOutput = {
   VELOCITY_PASSTHRU, CHANNEL_PASSTHRU, CHANNEL_PASSTHRU,
-  SCALE_PASSTHRU, ROOTNOTE_PASSTHROUGH
+  SCALE_PASSTHRU, ROOTNOTE_PASSTHROUGH, BLOCK_NONE
 };
 
 AppSettings settings = {
@@ -471,6 +487,10 @@ void loadPreset(uint8_t slot) {
     return;
   }
   EEPROM.get(addr + 1, settings);
+  for (uint8_t o = 0; o < 3; o++) {
+    if (settings.output[o].clockFilter != BLOCK_NONE && settings.output[o].clockFilter != BLOCK_CLOCK && settings.output[o].clockFilter != FILTER_CLOCK)
+      settings.output[o].clockFilter = BLOCK_NONE;
+  }
   syncFeaturesFromSettings();
   iRootNoteOffset = (settings.output[0].rootNote > ROOTNOTE_PASSTHROUGH) ? (settings.output[0].rootNote - 1) : 0;
   //tmrDisplay.RESET;
@@ -498,6 +518,7 @@ void syncFeaturesFromSettings() {
     else if (grp == FEATURE_GROUP_CC_CHANNEL && outport >= 1 && settings.output[o].ccChannel == val) match = true;
     else if (grp == FEATURE_GROUP_SCALE && outport >= 1 && settings.output[o].scale == val) match = true;
     else if (grp == FEATURE_GROUP_ROOTNOTE && outport >= 1 && settings.output[o].rootNote == val) match = true;
+    else if (grp == FEATURE_GROUP_FILTER && outport >= 1 && settings.output[o].clockFilter == val) match = true;
     if (match) arrFeatures[i].select(true);
   }
 }
@@ -527,6 +548,7 @@ void syncSettingsFromFeatures() {
       settings.output[o].rootNote = val;
       if (o == 0) iRootNoteOffset = (val > ROOTNOTE_PASSTHROUGH) ? (val - 1) : 0;
     }
+    else if (grp == FEATURE_GROUP_FILTER) settings.output[o].clockFilter = val;
   }
 }
 
@@ -659,6 +681,16 @@ void sendToOutput(uint8_t outIndex, MidiPacket *p) {
   else if (outIndex == 2) Midi.SendData(p->data, 0);
 }
 
+// FEATURE_GROUP_FILTER: BLOCK_NONE=pass all, BLOCK_CLOCK=drop clock/start/stop, FILTER_CLOCK=only pass clock/start/stop
+void processClockFilter(MidiPacket *p, uint8_t outIndex) {
+  uint8_t status = p->data[0];
+  bool isRealtime = (status == MIDI_CLOCK) || (status == MIDI_START) || (status == MIDI_STOP);
+  uint8_t f = settings.output[outIndex].clockFilter;
+  if (f == BLOCK_NONE) return;
+  if (f == BLOCK_CLOCK && isRealtime) { p->drop = true; return; }
+  if (f == FILTER_CLOCK && !isRealtime) { p->drop = true; return; }
+}
+
 // Only pass through notes that fit the selected scale and root. Others: set p->drop = true.
 // Implemented: SCALE_MAJOR and SCALE_MINOR (natural minor) for every root note (C through B).
 void processScale(MidiPacket *p, uint8_t outIndex) {
@@ -760,7 +792,8 @@ void sendPacket(uint8_t pInFrom, MidiPacket *pkt) {
     processVelocity(tmp.data, outIndex);   // only touches note on/off
     process_Note_Channel(tmp.data, outIndex);
     process_CC_Channel(tmp.data, outIndex);
-    processScale(&tmp, outIndex);          // only can set drop for out-of-scale notes
+    processScale(&tmp, outIndex);           // only can set drop for out-of-scale notes
+    processClockFilter(&tmp, outIndex);     // block or pass MIDI clock (and start/stop) per output
     sendToOutput(outIndex, &tmp);
   }
 }

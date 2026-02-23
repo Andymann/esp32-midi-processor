@@ -11,6 +11,7 @@ const uint8_t FEATURE_GROUP_ROOTNOTE = 4;
 const uint8_t FEATURE_GROUP_NOTE_CHANNEL = 8;
 const uint8_t FEATURE_GROUP_CC_CHANNEL = 16;
 const uint8_t FEATURE_GROUP_SCALE_HANDLER = 32;
+const uint8_t FEATURE_GROUP_FILTER = 65;   // distinct from routing (32,64,128): clock block/pass per output
 //
 const uint8_t FEATURE_GROUP_ROUTING_IN_1 = 32;
 const uint8_t FEATURE_GROUP_ROUTING_IN_2 = 64;
@@ -92,6 +93,10 @@ const uint8_t CHANNEL_13 = 13;
 const uint8_t CHANNEL_14 = 14;
 const uint8_t CHANNEL_15 = 15;
 const uint8_t CHANNEL_16 = 16;
+
+const uint8_t BLOCK_NONE = 1;
+const uint8_t BLOCK_CLOCK = 2;  
+const uint8_t FILTER_CLOCK = 3; // Only let CLOCK, START and STOP pass through
 
 class AppFeature {
 
