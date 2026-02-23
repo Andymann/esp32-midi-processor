@@ -538,7 +538,7 @@ void loop() {
       size = Midi.RecvData(midiPacket_IN3.data);
       if (size > 0) {
         midiPacket_IN3.drop = false;
-        pushMidiQueue(&midiPacket_IN3, 3);  // USB = source 3
+        pushMidiQueue(&midiPacket_IN3, 3);  // USB = source 3; passed through based on routing
         pixels.setPixelColor(4, pixels.Color(LED_ON, LED_ON, LED_OFF));
         pixels.show();
         tmrUSB.RESET;
@@ -601,6 +601,8 @@ void loop() {
 
 /*
   Drain serial/USB into the MIDI queue, then process queued events in order (FIFO, up to 10).
+  Every MIDI message (notes, CC, program change, pitch bend, realtime, etc.) is passed through
+  solely according to routing settings; no message type is blocked except by routing.
 */
 void readData(){
   checkMidiIn_1();
@@ -609,7 +611,7 @@ void readData(){
   processMidiQueue();
 }
 
-// Process all queued MIDI events in order (FIFO)
+// Process all queued MIDI events in order (FIFO). Each event is forwarded based on routing only.
 void processMidiQueue() {
   QueuedMidiEvent ev;
   while (popMidiQueue(&ev)) {
@@ -736,6 +738,8 @@ void process_CC_Channel(uint8_t *midiPacket, uint8_t outIndex){
   }
 }
 
+// Forward one MIDI packet to outputs based only on routing. All message types (notes, CC,
+// program change, pitch bend, realtime, etc.) are passed through; routing is the only gate.
 void sendPacket(uint8_t pInFrom, MidiPacket *pkt) {
   if (pkt->drop) return;
 
@@ -744,19 +748,19 @@ void sendPacket(uint8_t pInFrom, MidiPacket *pkt) {
   else if (pInFrom == 2) iRoutingTarget = settings.routingIn2;
   else iRoutingTarget = settings.routingIn3;
 
+  // Routing is the sole decider: no routing for this input => no output
   if (iRoutingTarget == ROUTING_TO_NONE) return;
 
-  // Apply per-output modifiers and send to each destination.
-  // processScale sets p->drop for out-of-scale notes; sendToOutput skips when drop is true.
+  // Send to each destination selected by routing; per-output modifiers only affect notes/CC.
   MidiPacket tmp;
   for (uint8_t outIndex = 0; outIndex < 3; outIndex++) {
     if (!routingSendsToOutput(iRoutingTarget, outIndex)) continue;
     copyData(tmp.data, pkt->data);
     tmp.drop = false;
-    processVelocity(tmp.data, outIndex);
+    processVelocity(tmp.data, outIndex);   // only touches note on/off
     process_Note_Channel(tmp.data, outIndex);
     process_CC_Channel(tmp.data, outIndex);
-    processScale(&tmp, outIndex);
+    processScale(&tmp, outIndex);          // only can set drop for out-of-scale notes
     sendToOutput(outIndex, &tmp);
   }
 }
@@ -879,7 +883,7 @@ void checkButton_Enc(){
   }
 }
 
-// Read up to 3 bytes from Serial1 into midiPacket_IN1; when complete, push to queue (source 1)
+// Read up to 3 bytes from Serial1; when complete, push to queue (source 1). All MIDI is passed through based on routing.
 void checkMidiIn_1(){
   while ((Serial1.available() > 0) && (iCounter_IN1 < 3)) {
     pixels.setPixelColor(0, pixels.Color(LED_ON, LED_ON, LED_OFF));
@@ -898,7 +902,7 @@ void checkMidiIn_1(){
   }
 }
 
-// Read up to 3 bytes from Serial2 into midiPacket_IN2; when complete, push to queue (source 2)
+// Read up to 3 bytes from Serial2; when complete, push to queue (source 2). All MIDI is passed through based on routing.
 void checkMidiIn_2(){
   while ((Serial2.available() > 0) && (iCounter_IN2 < 3)) {
     pixels.setPixelColor(1, pixels.Color(LED_ON, LED_ON, LED_OFF));
