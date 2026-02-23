@@ -92,9 +92,15 @@ bool btnC_Held = false;
 bool btnD_Held = false;
 bool btnEnc_Held = false;
 
-uint8_t midiPacket_IN1[] = {0xFF, 0xFF, 0xFF};
-uint8_t midiPacket_IN2[] = {0xFF, 0xFf, 0xFF};
-uint8_t midiPacket_IN3[] = {0xFF, 0xFF, 0xFF};
+// Input packet with data and drop flag (replaces using 3rd byte 0xFF as sentinel)
+struct MidiPacket {
+  uint8_t data[3];
+  bool drop;  // true = no data / do not send (filtered or already consumed)
+};
+
+MidiPacket midiPacket_IN1 = { {0xFF, 0xFF, 0xFF}, true };
+MidiPacket midiPacket_IN2 = { {0xFF, 0xFF, 0xFF}, true };
+MidiPacket midiPacket_IN3 = { {0xFF, 0xFF, 0xFF}, true };
 uint8_t iCounter_IN1 = 0;
 uint8_t iCounter_IN2 = 0;
 
@@ -499,12 +505,10 @@ void syncSettingsFromFeatures() {
 void loop() {
   Usb.Task();
   if ( Midi ) {
-    //MIDI_poll3();
     uint8_t size;
     do {
-      // Idee: uint8_t lookupMsgSize(uint8_t midiMsg, uint8_t cin=0);
-      //Serial.println("Poll:" ü );
-      size = Midi.RecvData(midiPacket_IN3);
+      size = Midi.RecvData(midiPacket_IN3.data);
+      if (size > 0) midiPacket_IN3.drop = false;
     } while (size > 0);
   }
 
@@ -563,8 +567,8 @@ void loop() {
 
 /*
   Based on routing-configuration the input from Midi1, Midi2 and USB might be interesting
-  this function makes sure that there's data in midiPacket_IN1, midiPacket_IN2 and midiPacket_IN3
-  If no data were reeived, midiPacket_IN1 etc contain [0xFF, 0xFF, 0xFF] 
+  this function makes sure that there's data in midiPacket_IN1, midiPacket_IN2 and midiPacket_IN3.
+  If no data were received, .drop is true (no packet to process). 
 */
 void readData(){
   if (settings.routingIn1 != ROUTING_TO_NONE) {
@@ -587,19 +591,19 @@ void readData(){
 */
 void processData(uint8_t pInput){
   if (pInput == 1) {
-    if (midiPacket_IN1[2] != 0xFF) {
-      sendPacket(1, midiPacket_IN1);
-      midiPacket_IN1[2] = 0xFF;
+    if (!midiPacket_IN1.drop) {
+      sendPacket(1, &midiPacket_IN1);
+      midiPacket_IN1.drop = true;
     }
   } else if (pInput == 2) {
-    if (midiPacket_IN2[2] != 0xFF) {
-      sendPacket(2, midiPacket_IN2);
-      midiPacket_IN2[2] = 0xFF;
+    if (!midiPacket_IN2.drop) {
+      sendPacket(2, &midiPacket_IN2);
+      midiPacket_IN2.drop = true;
     }
   } else if (pInput == 3) {
-    if (midiPacket_IN3[2] != 0xFF) {
-      sendPacket(3, midiPacket_IN3);
-      midiPacket_IN3[2] = 0xFF;
+    if (!midiPacket_IN3.drop) {
+      sendPacket(3, &midiPacket_IN3);
+      midiPacket_IN3.drop = true;
     }
   }
 }
@@ -633,22 +637,21 @@ static uint8_t getMidiPacketLen(uint8_t status) {
   return 3;                               // note on/off, aftertouch, CC, pitch bend
 }
 
-// Send packet to a single output (0=Serial1, 1=Serial2, 2=USB).
-// Only skip when it's a note that was filtered by scale (velocity 0xFF). All other MIDI passes through.
-void sendToOutput(uint8_t outIndex, uint8_t *midiPacket) {
-  uint8_t status = midiPacket[0] & 0xF0;
-  if ((status == 0x80 || status == 0x90) && midiPacket[2] == 0xFF) return; // scale-filtered note, don't send
+// Send packet to a single output (0=Serial1, 1=Serial2, 2=USB). Skip if p->drop.
+void sendToOutput(uint8_t outIndex, MidiPacket *p) {
+  if (p->drop) return;
+  uint8_t status = p->data[0] & 0xF0;
   uint8_t len = getMidiPacketLen(status);
   flashLED(outIndex + 1);
-  if (outIndex == 0) Serial1.write(midiPacket, len);
-  else if (outIndex == 1) Serial2.write(midiPacket, len);
-  else if (outIndex == 2) Midi.SendData(midiPacket, 0);
+  if (outIndex == 0) Serial1.write(p->data, len);
+  else if (outIndex == 1) Serial2.write(p->data, len);
+  else if (outIndex == 2) Midi.SendData(p->data, 0);
 }
 
-// Only pass through notes that fit the selected scale and root. Others are dropped (midiPacket[2] = 0xFF).
+// Only pass through notes that fit the selected scale and root. Others: set p->drop = true.
 // Implemented: SCALE_MAJOR and SCALE_MINOR (natural minor) for every root note (C through B).
-void processScale(uint8_t *midiPacket, uint8_t outIndex) {
-  uint8_t status = midiPacket[0] & 0xF0;
+void processScale(MidiPacket *p, uint8_t outIndex) {
+  uint8_t status = p->data[0] & 0xF0;
   if (status != 0x80 && status != 0x90) return; // only filter note on/off
 
   uint8_t scale = settings.output[outIndex].scale;
@@ -659,31 +662,34 @@ void processScale(uint8_t *midiPacket, uint8_t outIndex) {
   // Root note enum 1..12 (C..B) -> pitch class 0..11
   uint8_t rootPc = root - 1;
 
-  // Intervals in semitones from root: major 0,2,4,5,7,9,11 ; natural minor 0,2,3,5,7,8,10
+  // Intervals in semitones from root: major 0,2,4,5,7,9,11 ; natural minor 0,2,3,5,7,8,10 ; pentatonic 5 notes
   static const uint8_t majorIntervals[]   = { 0, 2, 4, 5, 7, 9, 11 };
   static const uint8_t minorIntervals[]   = { 0, 2, 3, 5, 7, 8, 10 };
-  static const uint8_t pentaMajorIntervals[]   = { 0, 2, 4, 7, 9};
-  static const uint8_t pentaMinorIntervals[]   = { 0, 3, 5, 7, 10};
+  static const uint8_t pentaMajorIntervals[] = { 0, 2, 4, 7, 9 };
+  static const uint8_t pentaMinorIntervals[] = { 0, 3, 5, 7, 10 };
 
   const uint8_t *intervals;
+  uint8_t nNotes = 7;
   if (scale == SCALE_MAJOR) {
     intervals = majorIntervals;
   } else if (scale == SCALE_MINOR) {
-      intervals = minorIntervals;
-  } else if(scale == SCALE_PENTATONIC_MAJOR) {
+    intervals = minorIntervals;
+  } else if (scale == SCALE_PENTATONIC_MAJOR) {
     intervals = pentaMajorIntervals;
-  } else if(scale == SCALE_PENTATONIC_MINOR) {
+    nNotes = 5;
+  } else if (scale == SCALE_PENTATONIC_MINOR) {
     intervals = pentaMinorIntervals;
-  }else {
-    return; // SCALE_PENTATONIC_* etc. not implemented
+    nNotes = 5;
+  } else {
+    return;
   }
 
-  uint8_t pc = midiPacket[1] % 12;
+  uint8_t pc = p->data[1] % 12;
   bool inScale = false;
-  for (uint8_t i = 0; i < 7; i++) {
+  for (uint8_t i = 0; i < nNotes; i++) {
     if ((rootPc + intervals[i]) % 12 == pc) { inScale = true; break; }
   }
-  if (!inScale) midiPacket[2] = 0xFF; // drop note so sendToOutput skips it
+  if (!inScale) p->drop = true;
 }
 
 void processVelocity(uint8_t *midiPacket, uint8_t outIndex){
@@ -721,11 +727,8 @@ void process_CC_Channel(uint8_t *midiPacket, uint8_t outIndex){
   }
 }
 
-void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
-  // Only skip entire packet for "no data" sentinel (note with vel 0xFF before processing).
-  // Other messages (CC, program change, pitch bend, etc.) always pass through by routing.
-  uint8_t status = midiPacket[0] & 0xF0;
-  if ((status == 0x80 || status == 0x90) && midiPacket[2] == 0xFF) return; // no note data to send
+void sendPacket(uint8_t pInFrom, MidiPacket *pkt) {
+  if (pkt->drop) return;
 
   uint8_t iRoutingTarget;
   if (pInFrom == 1) iRoutingTarget = settings.routingIn1;
@@ -735,16 +738,17 @@ void sendPacket(uint8_t pInFrom, uint8_t *midiPacket){
   if (iRoutingTarget == ROUTING_TO_NONE) return;
 
   // Apply per-output modifiers and send to each destination.
-  // processScale must run last so its 0xFF drop is not overwritten by processVelocity.
-  uint8_t tmpPacket[3];
+  // processScale sets p->drop for out-of-scale notes; sendToOutput skips when drop is true.
+  MidiPacket tmp;
   for (uint8_t outIndex = 0; outIndex < 3; outIndex++) {
     if (!routingSendsToOutput(iRoutingTarget, outIndex)) continue;
-    copyData(tmpPacket, midiPacket);
-    processVelocity(tmpPacket, outIndex);
-    process_Note_Channel(tmpPacket, outIndex);
-    process_CC_Channel(tmpPacket, outIndex);
-    processScale(tmpPacket, outIndex);      // filter notes to scale (drops if out of scale)
-    sendToOutput(outIndex, tmpPacket);
+    copyData(tmp.data, pkt->data);
+    tmp.drop = false;
+    processVelocity(tmp.data, outIndex);
+    process_Note_Channel(tmp.data, outIndex);
+    process_CC_Channel(tmp.data, outIndex);
+    processScale(&tmp, outIndex);
+    sendToOutput(outIndex, &tmp);
   }
 }
 
@@ -867,48 +871,46 @@ void checkButton_Enc(){
 }
 
 // Stores up to(!) 3 bytes into midiPacket_IN1
-void checkMidiIn_1(){ 
-  while ((Serial1.available() > 0) && (iCounter_IN1 < 3)){
+void checkMidiIn_1(){
+  while ((Serial1.available() > 0) && (iCounter_IN1 < 3)) {
     pixels.setPixelColor(0, pixels.Color(LED_ON, LED_ON, LED_OFF));
     pixels.show();
     tmrIn1.RESET;
     byte tmp = Serial1.read();
-    midiPacket_IN1[iCounter_IN1] = tmp;
-    //Serial.print(midiPacket_IN1[iCounter_IN1]); Serial.print(" ");
-    if((tmp==MIDI_START)||(tmp==MIDI_STOP)||(tmp==MIDI_CLOCK)){
-      iCounter_IN1=3;
-      midiPacket_IN1[2] = 0x00; //inbound signaling ... worst idea ever. however this way we can also deal with midi clock data.
+    midiPacket_IN1.data[iCounter_IN1] = tmp;
+    if ((tmp == MIDI_START) || (tmp == MIDI_STOP) || (tmp == MIDI_CLOCK)) {
+      iCounter_IN1 = 3;
     }
     iCounter_IN1++;
-    if(iCounter_IN1==3){
-      iCounter_IN1=0;
+    if (iCounter_IN1 == 3) {
+      iCounter_IN1 = 0;
+      midiPacket_IN1.drop = false;  // packet ready to process
     }
   }
 }
 
 
-void checkMidiIn_2(){ 
-  while ((Serial2.available() > 0) && (iCounter_IN2 < 3)){
+void checkMidiIn_2(){
+  while ((Serial2.available() > 0) && (iCounter_IN2 < 3)) {
     pixels.setPixelColor(1, pixels.Color(LED_ON, LED_ON, LED_OFF));
     pixels.show();
     tmrIn2.RESET;
     byte tmp = Serial2.read();
-    midiPacket_IN2[iCounter_IN2] = tmp;
-    //Serial.print(midiPacket_IN1[iCounter_IN1]); Serial.print(" ");
-    if((tmp==MIDI_START)||(tmp==MIDI_STOP)||(tmp==MIDI_CLOCK)){
-      iCounter_IN2=3;
-      midiPacket_IN2[2] = 0x00; //inbound signaling ... worst idea ever. however this way we can also deal with midi clock data.
+    midiPacket_IN2.data[iCounter_IN2] = tmp;
+    if ((tmp == MIDI_START) || (tmp == MIDI_STOP) || (tmp == MIDI_CLOCK)) {
+      iCounter_IN2 = 3;
     }
     iCounter_IN2++;
-    if(iCounter_IN2==3){
-      iCounter_IN2=0;
+    if (iCounter_IN2 == 3) {
+      iCounter_IN2 = 0;
+      midiPacket_IN2.drop = false;  // packet ready to process
     }
   }
 }
 
-// USB is handled differently
+// USB is handled differently (RecvData in loop sets .drop = false when data received)
 void checkMidiIn_USB(){
-  if(midiPacket_IN3[2]!=0xFF){
+  if (!midiPacket_IN3.drop) {
     pixels.setPixelColor(4, pixels.Color(LED_ON, LED_ON, LED_OFF));
     pixels.show();
     tmrUSB.RESET;
