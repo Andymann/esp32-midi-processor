@@ -13,10 +13,11 @@
 #include <AbleButtons.h>
 #include "AppFeature.h"
 #include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSans24pt7b.h>
 #include <BlockNot.h>
 #include <EEPROM.h>
 
-#define VERSION "0.95"
+#define VERSION "0.96"
 
 #define PRESET_COUNT 4
 #define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
@@ -982,11 +983,12 @@ void displayPreset(String pPreset){
 
   display.setCursor(0, 12);
   display.println( ("Preset") );
-
-  display.setTextSize(3);
+  display.setFont(&FreeSans24pt7b);
+  display.setTextSize(1);
   display.setCursor(45, 60);
   display.println( (pPreset) );
   display.display();
+  display.setFont(&FreeSans9pt7b);
 }
 
 
