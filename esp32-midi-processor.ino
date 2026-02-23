@@ -432,14 +432,17 @@ void loadPreset(uint8_t slot) {
   if (slot >= PRESET_COUNT) return;
   uint16_t addr = 2 + slot * (1 + sizeof(AppSettings));
   if (EEPROM.read(addr) != 1) {
-    displayText("Preset", String((char)('A' + slot)) + " empty", "", "");
+    //displayText("Preset", String((char)('A' + slot)) + " empty", "", "");
+    displayText("Preset " + String((char)('A' + slot)),  "", "empty", "");
     return;
   }
   EEPROM.get(addr + 1, settings);
   syncFeaturesFromSettings();
   iRootNoteOffset = (settings.output[0].rootNote > ROOTNOTE_PASSTHROUGH) ? (settings.output[0].rootNote - 1) : 0;
-  tmrDisplay.RESET;
-  displayText("Preset", String((char)('A' + slot)) + " loaded", "", "");
+  //tmrDisplay.RESET;
+  //displayText("Preset", String((char)('A' + slot)) + " loaded", "", "");
+  //displayText("Preset " + String((char)('A' + slot)), "",  "loaded", "");
+  displayPreset( String((char)('A' + slot)) );
 }
 
 // Update arrFeatures[] selection to match current settings (after load preset).
@@ -921,6 +924,21 @@ void onInit()
   sprintf(buf, "VID:%04X, PID:%04X", vid, pid);
   Serial.println(buf); 
 }
+
+void displayPreset(String pPreset){
+  display.clearDisplay();
+  display.setTextSize(1); // Draw 2X-scale text
+  display.setTextColor(SSD1306_WHITE);
+
+  display.setCursor(0, 12);
+  display.println( ("Preset") );
+
+  display.setTextSize(3);
+  display.setCursor(45, 60);
+  display.println( (pPreset) );
+  display.display();
+}
+
 
 void displayText(String pLine1, String pLine2, String pLine3, String pLine4){
   display.clearDisplay();
