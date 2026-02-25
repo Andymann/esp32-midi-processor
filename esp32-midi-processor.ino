@@ -827,17 +827,20 @@ void checkButton_Combo() {
   } else {
     bBtnAD_ComboActive = false;
     bBtnAD_UsbInitDone = false;  // reset when released so next hold can trigger again
+    btnA.resetClicked();         // clear click so release after combo doesn't load preset
+    btnD.resetClicked();
   }
 }
 
 void checkButton_A(){
+  if (bBtnAD_ComboActive) return;  // A+D combo active: skip all A handling (avoids resetClicked clearing held)
    btnA.handle();
   if (btnA.isHeld()) {
     if (!bBtnA_old) {
       bBtnA_old = true;
       btnA_Held = true;
       bBtnA_Reset = btnA.resetClicked();
-      if (!bBtnAD_ComboActive && !btnD.isHeld()) savePreset(0);  // skip when A+D combo (D held)
+      if (!btnD.isPressed()) savePreset(0);  // only save when D not pressed (else user may be doing A+D combo)
     }
   } else {
     bBtnA_old = false;
@@ -891,13 +894,14 @@ void checkButton_C(){
 }
 
 void checkButton_D(){
+  if (bBtnAD_ComboActive) return;  // A+D combo active: skip all D handling (avoids resetClicked clearing held)
    btnD.handle();
   if (btnD.isHeld()) {
     if (!bBtnD_old) {
       bBtnD_old = true;
       btnD_Held = true;
       bBtnD_Reset = btnD.resetClicked();
-      if (!bBtnAD_ComboActive && !btnA.isHeld()) savePreset(3);  // skip when A+D combo (A held)
+      if (!btnA.isPressed()) savePreset(3);  // only save when A not pressed (else user may be doing A+D combo)
     }
   } else {
     bBtnD_old = false;
