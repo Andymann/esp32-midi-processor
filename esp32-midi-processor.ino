@@ -442,7 +442,7 @@ void setup() {
   delay(50);
 
   if (Usb.Init() == -1) {
-    while (1); //halt
+    delay(3000);  // don't block forever; continue after 3 sec (USB unavailable)
   }
   delay( 200 );
 
@@ -583,6 +583,7 @@ void loop() {
 
   readData();
 
+  checkButton_Combo();  // A+D long press = Usb.Init; must run before A/D handlers
   checkButton_A();
   checkButton_B();
   checkButton_C();
@@ -812,6 +813,23 @@ void flashLED(uint8_t pOutport){
 }
 
 
+// A+D held long = manual Usb.Init. Runs first so A/D skip preset save when combo active.
+void checkButton_Combo() {
+  static bool bBtnAD_UsbInitDone = false;
+  btnA.handle();
+  btnD.handle();
+  if (btnA.isHeld() && btnD.isHeld()) {
+    bBtnAD_ComboActive = true;
+    if (!bBtnAD_UsbInitDone) {
+      bBtnAD_UsbInitDone = true;
+      Usb.Init();
+    }
+  } else {
+    bBtnAD_ComboActive = false;
+    bBtnAD_UsbInitDone = false;  // reset when released so next hold can trigger again
+  }
+}
+
 void checkButton_A(){
    btnA.handle();
   if (btnA.isHeld()) {
@@ -819,7 +837,7 @@ void checkButton_A(){
       bBtnA_old = true;
       btnA_Held = true;
       bBtnA_Reset = btnA.resetClicked();
-      savePreset(0);  // long press: save to preset A
+      if (!bBtnAD_ComboActive) savePreset(0);  // long press: save to preset A (skip when A+D combo)
     }
   } else {
     bBtnA_old = false;
@@ -873,13 +891,13 @@ void checkButton_C(){
 }
 
 void checkButton_D(){
-  btnD.handle();
+   btnD.handle();
   if (btnD.isHeld()) {
     if (!bBtnD_old) {
       bBtnD_old = true;
       btnD_Held = true;
       bBtnD_Reset = btnD.resetClicked();
-      savePreset(3);  // long press: save to preset D
+      if (!bBtnAD_ComboActive) savePreset(3);  // long press: save to preset D (skip when A+D combo)
     }
   } else {
     bBtnD_old = false;
