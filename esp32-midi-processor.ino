@@ -17,7 +17,7 @@
 #include <BlockNot.h>
 #include <EEPROM.h>
 
-#define VERSION "0.96"
+#define VERSION "0.98"
 
 #define PRESET_COUNT 4
 #define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
@@ -92,7 +92,7 @@ bool btnB_Held = false;
 bool btnC_Held = false;
 bool btnD_Held = false;
 bool btnEnc_Held = false;
-
+bool bBtnAD_ComboActive = false;  // A+D held: skip preset save, allow Usb.Init 
 // Input packet with data and drop flag (replaces using 3rd byte 0xFF as sentinel)
 struct MidiPacket {
   uint8_t data[3];
@@ -837,7 +837,7 @@ void checkButton_A(){
       bBtnA_old = true;
       btnA_Held = true;
       bBtnA_Reset = btnA.resetClicked();
-      if (!bBtnAD_ComboActive) savePreset(0);  // long press: save to preset A (skip when A+D combo)
+      if (!bBtnAD_ComboActive && !btnD.isHeld()) savePreset(0);  // skip when A+D combo (D held)
     }
   } else {
     bBtnA_old = false;
@@ -897,7 +897,7 @@ void checkButton_D(){
       bBtnD_old = true;
       btnD_Held = true;
       bBtnD_Reset = btnD.resetClicked();
-      if (!bBtnAD_ComboActive) savePreset(3);  // long press: save to preset D (skip when A+D combo)
+      if (!bBtnAD_ComboActive && !btnA.isHeld()) savePreset(3);  // skip when A+D combo (A held)
     }
   } else {
     bBtnD_old = false;
