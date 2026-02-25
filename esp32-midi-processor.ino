@@ -825,10 +825,12 @@ void checkButton_Combo() {
       Usb.Init();
     }
   } else {
+    if (bBtnAD_ComboActive) {    // exiting combo: clear click so release doesn't load preset
+      btnA.resetClicked();
+      btnD.resetClicked();
+    }
     bBtnAD_ComboActive = false;
     bBtnAD_UsbInitDone = false;  // reset when released so next hold can trigger again
-    btnA.resetClicked();         // clear click so release after combo doesn't load preset
-    btnD.resetClicked();
   }
 }
 
