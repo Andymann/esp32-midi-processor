@@ -822,7 +822,10 @@ void checkButton_Combo() {
     bBtnAD_ComboActive = true;
     if (!bBtnAD_UsbInitDone) {
       bBtnAD_UsbInitDone = true;
-      Usb.Init();
+      if (Usb.Init() != -1) {
+        tmrDisplay.RESET;
+        displayText("USB", "reinit OK", "", "");
+      }
     }
   } else {
     if (bBtnAD_ComboActive) {    // exiting combo: clear click so release doesn't load preset
