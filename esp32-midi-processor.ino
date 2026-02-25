@@ -17,7 +17,7 @@
 #include <BlockNot.h>
 #include <EEPROM.h>
 
-#define VERSION "0.96"
+#define VERSION "0.98"
 
 #define PRESET_COUNT 4
 #define EEPROM_SIZE  (2 + PRESET_COUNT * (1 + sizeof(AppSettings)))
@@ -92,7 +92,7 @@ bool btnB_Held = false;
 bool btnC_Held = false;
 bool btnD_Held = false;
 bool btnEnc_Held = false;
-
+bool bBtnAD_ComboActive = false;  // A+D held: skip preset save, allow Usb.Init 
 // Input packet with data and drop flag (replaces using 3rd byte 0xFF as sentinel)
 struct MidiPacket {
   uint8_t data[3];
@@ -442,7 +442,7 @@ void setup() {
   delay(50);
 
   if (Usb.Init() == -1) {
-    while (1); //halt
+    delay(3000);  // don't block forever; continue after 3 sec (USB unavailable)
   }
   delay( 200 );
 
@@ -583,6 +583,7 @@ void loop() {
 
   readData();
 
+  checkButton_Combo();  // A+D long press = Usb.Init; must run before A/D handlers
   checkButton_A();
   checkButton_B();
   checkButton_C();
@@ -812,14 +813,39 @@ void flashLED(uint8_t pOutport){
 }
 
 
+// A+D held long = manual Usb.Init. Runs first so A/D skip preset save when combo active.
+void checkButton_Combo() {
+  static bool bBtnAD_UsbInitDone = false;
+  btnA.handle();
+  btnD.handle();
+  if (btnA.isHeld() && btnD.isHeld()) {
+    bBtnAD_ComboActive = true;
+    if (!bBtnAD_UsbInitDone) {
+      bBtnAD_UsbInitDone = true;
+      if (Usb.Init() != -1) {
+        tmrDisplay.RESET;
+        displayText("USB", "reinit OK", "", "");
+      }
+    }
+  } else {
+    if (bBtnAD_ComboActive) {    // exiting combo: clear click so release doesn't load preset
+      btnA.resetClicked();
+      btnD.resetClicked();
+    }
+    bBtnAD_ComboActive = false;
+    bBtnAD_UsbInitDone = false;  // reset when released so next hold can trigger again
+  }
+}
+
 void checkButton_A(){
+  if (bBtnAD_ComboActive) return;  // A+D combo active: skip all A handling (avoids resetClicked clearing held)
    btnA.handle();
   if (btnA.isHeld()) {
     if (!bBtnA_old) {
       bBtnA_old = true;
       btnA_Held = true;
       bBtnA_Reset = btnA.resetClicked();
-      savePreset(0);  // long press: save to preset A
+      if (!btnD.isPressed()) savePreset(0);  // only save when D not pressed (else user may be doing A+D combo)
     }
   } else {
     bBtnA_old = false;
@@ -873,13 +899,14 @@ void checkButton_C(){
 }
 
 void checkButton_D(){
-  btnD.handle();
+  if (bBtnAD_ComboActive) return;  // A+D combo active: skip all D handling (avoids resetClicked clearing held)
+   btnD.handle();
   if (btnD.isHeld()) {
     if (!bBtnD_old) {
       bBtnD_old = true;
       btnD_Held = true;
       bBtnD_Reset = btnD.resetClicked();
-      savePreset(3);  // long press: save to preset D
+      if (!btnA.isPressed()) savePreset(3);  // only save when A not pressed (else user may be doing A+D combo)
     }
   } else {
     bBtnD_old = false;
