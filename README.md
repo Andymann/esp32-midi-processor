@@ -1,6 +1,6 @@
 # esp32-midi-processor
 
-<img src="images/esp32-midi-processor.jpg" width="300">
+<img src="images/esp32-midi-processor.jpg" width="500">
 
 esp32-based multitool. Routing, merging, realtime-manipulation of MIDI-data.  
 This repo contains code, kicad-files and a BOM for (nearly) one-click order at [pcbway](https://https://pcbway-com).  
