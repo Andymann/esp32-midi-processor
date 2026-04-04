@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2c6fad', 'lineColor': '#555'}}}%%
+flowchart LR
+    subgraph IN12["MIDI In 1 or In 2"]
+        direction TB
+        N1["🚫 Drop (none)"]
+        A1["→ Out 1 only"]
+        B1["→ Out 2 only"]
+        C1["→ USB only"]
+        D1["→ Out 1 + Out 2"]
+        E1["→ Out 1 + USB"]
+        F1["→ Out 2 + USB"]
+        G1["→ Out 1 + Out 2 + USB"]
+    end
+
+    subgraph IN3["USB MIDI In\n(no loopback to USB Out)"]
+        direction TB
+        N3["🚫 Drop (none)"]
+        A3["→ Out 1 only"]
+        B3["→ Out 2 only"]
+        D3["→ Out 1 + Out 2"]
+    end
+
+    classDef blocked fill:#c0392b,stroke:#922b21,color:#fff
+    classDef dest    fill:#27a06e,stroke:#1a7050,color:#fff
+
+    class N1,N3 blocked
+    class A1,B1,C1,D1,E1,F1,G1,A3,B3,D3 dest

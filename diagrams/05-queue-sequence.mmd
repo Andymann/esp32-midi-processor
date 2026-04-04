@@ -1,0 +1,21 @@
+sequenceDiagram
+    participant HW1 as Serial1 (In 1)
+    participant HW2 as Serial2 (In 2)
+    participant USB as USB MIDI (In 3)
+    participant Q  as MIDI Queue (FIFO, 10 slots)
+    participant SP as sendPacket()
+    participant O1 as Out 1
+    participant O2 as Out 2
+    participant O3 as USB Out
+
+    loop Every loop()
+        HW1->>Q: push (source=1)
+        HW2->>Q: push (source=2)
+        USB->>Q: push (source=3)
+        Q->>SP: pop & process in order
+        SP->>SP: apply routing
+        SP->>SP: velocity / channel / scale / clock filter (per output)
+        SP->>O1: write if routed
+        SP->>O2: write if routed
+        SP->>O3: send if routed
+    end

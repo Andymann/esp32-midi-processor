@@ -1,0 +1,22 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#6b4fbb', 'primaryTextColor': '#fff', 'primaryBorderColor': '#4a3490', 'lineColor': '#555'}}}%%
+flowchart LR
+    IN(["▶  MIDI In"])
+
+    ROUTE["1️⃣  Routing\nSend to Out 1, Out 2,\nUSB, or any combination"]
+
+    VEL["2️⃣  Velocity\nPassthru, fixed value,\nor randomize"]
+
+    CHAN["3️⃣  Channel Remap\nChange note or CC\nMIDI channel"]
+
+    SCALE["4️⃣  Scale Filter\nDrop notes outside\nchosen key & scale"]
+
+    CLOCK["5️⃣  Clock Filter\nBlock or isolate\nMIDI clock messages"]
+
+    OUT(["⏹  MIDI Out"])
+
+    IN --> ROUTE --> VEL --> CHAN --> SCALE --> CLOCK --> OUT
+
+    classDef step fill:#6b4fbb,stroke:#4a3490,color:#fff
+    classDef io   fill:#333,stroke:#111,color:#fff
+    class ROUTE,VEL,CHAN,SCALE,CLOCK step
+    class IN,OUT io

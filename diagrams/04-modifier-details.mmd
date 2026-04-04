@@ -1,0 +1,33 @@
+flowchart LR
+    subgraph VEL["Velocity  (Note On only)"]
+        direction TB
+        V0["Passthru — unchanged"]
+        V1["Fix 63"]
+        V2["Fix 100"]
+        V3["Fix 127"]
+        V4["Random 0–127"]
+        V5["Random 91–110"]
+    end
+
+    subgraph SCALE["Scale Filter  (Note On/Off only)"]
+        direction TB
+        S0["Passthru — all notes pass"]
+        S1["Major  (7 notes)"]
+        S2["Natural Minor  (7 notes)"]
+        S3["Pentatonic Major  (5 notes)"]
+        S4["Pentatonic Minor  (5 notes)"]
+        SN["Root: C C# D D# E F F# G G# A A# B"]
+    end
+
+    subgraph CH["Channel Remap"]
+        direction TB
+        C0["Note Ch: passthru or 1–16"]
+        C1["CC Ch: passthru or 1–16"]
+    end
+
+    subgraph CLK["Clock Filter"]
+        direction TB
+        F0["Pass All (default)"]
+        F1["Block Clock — drop F8/FA/FC"]
+        F2["Clock Only — pass only F8/FA/FC"]
+    end

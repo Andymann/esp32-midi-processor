@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2c6fad', 'lineColor': '#555', 'secondaryColor': '#f0f4fa', 'tertiaryColor': '#fff'}}}%%
+flowchart LR
+    subgraph INPUTS["  INPUTS  "]
+        direction TB
+        IN1["🎹  MIDI In 1\n(DIN / Serial)"]
+        IN2["🎹  MIDI In 2\n(DIN / Serial)"]
+        IN3["🔌  USB MIDI In"]
+    end
+
+    PROC["⚙️  ESP32\nMIDI Processor\n\n• Routing\n• Velocity\n• Scale filter\n• Channel remap\n• Clock filter"]
+
+    subgraph OUTPUTS["  OUTPUTS  "]
+        direction TB
+        OUT1["🎵  MIDI Out 1\n(DIN / Serial)"]
+        OUT2["🎵  MIDI Out 2\n(DIN / Serial)"]
+        OUT3["🔌  USB MIDI Out"]
+    end
+
+    INPUTS --> PROC --> OUTPUTS
+
+    classDef input  fill:#2a7fd4,stroke:#1a5fa0,color:#fff
+    classDef proc   fill:#6b4fbb,stroke:#4a3490,color:#fff
+    classDef output fill:#27a06e,stroke:#1a7050,color:#fff
+
+    class IN1,IN2,IN3 input
+    class PROC proc
+    class OUT1,OUT2,OUT3 output

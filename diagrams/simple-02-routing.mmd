@@ -1,0 +1,31 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2c6fad', 'lineColor': '#666'}}}%%
+flowchart LR
+    IN1["🎹  MIDI In 1"]
+    IN2["🎹  MIDI In 2"]
+    IN3["🔌  USB MIDI In"]
+
+    OUT1["🎵  MIDI Out 1"]
+    OUT2["🎵  MIDI Out 2"]
+    OUT3["🔌  USB MIDI Out"]
+
+    NOTE["Each arrow is independently\nenabled or disabled\nper preset"]
+
+    IN1 --> OUT1
+    IN1 --> OUT2
+    IN1 --> OUT3
+
+    IN2 --> OUT1
+    IN2 --> OUT2
+    IN2 --> OUT3
+
+    IN3 --> OUT1
+    IN3 --> OUT2
+    IN3 -. "no loopback" .-> OUT3
+
+    classDef input    fill:#2a7fd4,stroke:#1a5fa0,color:#fff
+    classDef output   fill:#27a06e,stroke:#1a7050,color:#fff
+    classDef note     fill:#f5f5f5,stroke:#aaa,color:#333,font-style:italic
+
+    class IN1,IN2,IN3 input
+    class OUT1,OUT2,OUT3 output
+    class NOTE note

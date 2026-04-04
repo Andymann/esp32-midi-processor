@@ -1,0 +1,14 @@
+flowchart TD
+    A["Incoming MIDI packet\n(from routing)"]
+    B["Velocity Modifier\n(passthru / fix 63,100,127 / random / random-100)\nNote On/Off only"]
+    C["Note Channel Remap\n(passthru or Ch 1–16)\nNote On/Off only"]
+    D["CC Channel Remap\n(passthru or Ch 1–16)\nCC messages only"]
+    E["Scale Filter\n(passthru / Major / Minor /\nPentatonic Maj / Pentatonic Min)\nNote On/Off only — drop if out of scale"]
+    F["Clock Filter\n(pass all / block clock / clock only)"]
+    G{"drop flag set?"}
+    H["Send to Output\n(Serial1 / Serial2 / USB)"]
+    X["Discard"]
+
+    A --> B --> C --> D --> E --> F --> G
+    G -->|"no"| H
+    G -->|"yes"| X

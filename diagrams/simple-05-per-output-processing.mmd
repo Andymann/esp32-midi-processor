@@ -1,0 +1,51 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2c6fad', 'lineColor': '#555'}}}%%
+flowchart LR
+    IN1["🎹 MIDI In 1"]
+    IN2["🎹 MIDI In 2"]
+    IN3["🔌 USB MIDI In"]
+
+    ROUTE["🔀 Routing\n─────────\nDecides which outputs\nreceive each message"]
+
+    V1["Velocity"]
+    C1["Channel\nRemap"]
+    S1["Scale\nFilter"]
+    K1["Clock\nFilter"]
+    OUT1["🎵 MIDI Out 1"]
+
+    V2["Velocity"]
+    C2["Channel\nRemap"]
+    S2["Scale\nFilter"]
+    K2["Clock\nFilter"]
+    OUT2["🎵 MIDI Out 2"]
+
+    V3["Velocity"]
+    C3["Channel\nRemap"]
+    S3["Scale\nFilter"]
+    K3["Clock\nFilter"]
+    OUT3["🔌 USB MIDI Out"]
+
+    IN1 & IN2 & IN3 --> ROUTE
+
+    ROUTE --> V1 --> C1 --> S1 --> K1 --> OUT1
+    ROUTE --> V2 --> C2 --> S2 --> K2 --> OUT2
+    ROUTE --> V3 --> C3 --> S3 --> K3 --> OUT3
+
+    LABEL1["Out 1 settings\n(independent)"]
+    LABEL2["Out 2 settings\n(independent)"]
+    LABEL3["USB Out settings\n(independent)"]
+
+    V1 -.-> LABEL1
+    V2 -.-> LABEL2
+    V3 -.-> LABEL3
+
+    classDef input  fill:#2a7fd4,stroke:#1a5fa0,color:#fff
+    classDef route  fill:#8e44ad,stroke:#6c3483,color:#fff
+    classDef step   fill:#6b4fbb,stroke:#4a3490,color:#fff
+    classDef output fill:#27a06e,stroke:#1a7050,color:#fff
+    classDef label  fill:#f9f9f9,stroke:#bbb,color:#555,font-style:italic
+
+    class IN1,IN2,IN3 input
+    class ROUTE route
+    class V1,C1,S1,K1,V2,C2,S2,K2,V3,C3,S3,K3 step
+    class OUT1,OUT2,OUT3 output
+    class LABEL1,LABEL2,LABEL3 label

@@ -1,0 +1,35 @@
+flowchart LR
+    IN1["MIDI In 1\n(Serial1 / UART)"]
+    IN2["MIDI In 2\n(Serial2 / UART)"]
+    IN3["USB MIDI In\n(MAX3421E Host)"]
+
+    R1["Routing In1\n(None/1/2/3/1+2/1+3/2+3/All)"]
+    R2["Routing In2\n(None/1/2/3/1+2/1+3/2+3/All)"]
+    R3["Routing In3\n(None/1/2/1+2)"]
+
+    P1["Output 1\nProcessing Pipeline"]
+    P2["Output 2\nProcessing Pipeline"]
+    P3["USB Output\nProcessing Pipeline"]
+
+    OUT1["MIDI Out 1\n(Serial1 / UART)"]
+    OUT2["MIDI Out 2\n(Serial2 / UART)"]
+    OUT3["USB MIDI Out\n(MAX3421E Host)"]
+
+    IN1 --> R1
+    IN2 --> R2
+    IN3 --> R3
+
+    R1 -->|"to Out1"| P1
+    R1 -->|"to Out2"| P2
+    R1 -->|"to USB"| P3
+
+    R2 -->|"to Out1"| P1
+    R2 -->|"to Out2"| P2
+    R2 -->|"to USB"| P3
+
+    R3 -->|"to Out1"| P1
+    R3 -->|"to Out2"| P2
+
+    P1 --> OUT1
+    P2 --> OUT2
+    P3 --> OUT3

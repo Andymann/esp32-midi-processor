@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph IN1_routes["Input 1 routing options (full set)"]
+        direction LR
+        I1(In 1) --> N1["None\n(dropped)"]
+        I1 --> A1["Out 1"]
+        I1 --> B1["Out 2"]
+        I1 --> C1["USB Out"]
+        I1 --> D1["Out 1 + Out 2"]
+        I1 --> E1["Out 1 + USB"]
+        I1 --> F1["Out 2 + USB"]
+        I1 --> G1["Out 1 + Out 2 + USB"]
+    end
+
+    subgraph IN2_routes["Input 2 routing options (full set)"]
+        direction LR
+        I2(In 2) --> N2["None\n(dropped)"]
+        I2 --> A2["Out 1"]
+        I2 --> B2["Out 2"]
+        I2 --> C2["USB Out"]
+        I2 --> D2["Out 1 + Out 2"]
+        I2 --> E2["Out 1 + USB"]
+        I2 --> F2["Out 2 + USB"]
+        I2 --> G2["Out 1 + Out 2 + USB"]
+    end
+
+    subgraph IN3_routes["USB Input 3 routing options (no USB loopback)"]
+        direction LR
+        I3(USB In) --> N3["None\n(dropped)"]
+        I3 --> A3["Out 1"]
+        I3 --> B3["Out 2"]
+        I3 --> D3["Out 1 + Out 2"]
+    end
